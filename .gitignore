@@ -1,0 +1,24 @@
+# 运行时数据：数据库和备份
+data/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# 导出的报表
+*.xlsx
+!docs/**/*.xlsx
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 仅本机的 AI 助手配置
+AGENTS.local.md
+CLAUDE.local.md
+.dsh/
