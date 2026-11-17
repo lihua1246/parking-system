@@ -8,6 +8,10 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.entities import User
+from app.repository.fee_rule_repo import FeeRuleRepo
+from app.repository.record_repo import RecordRepo
+from app.repository.vehicle_repo import VehicleRepo
+from app.services.gate import GateService
 from app.ui.pages.alert_page import AlertPage
 from app.ui.pages.backup_page import BackupPage
 from app.ui.pages.fee_rule_page import FeeRulePage
@@ -53,8 +57,11 @@ class MainWindow(QMainWindow):
 
     def _build_pages(self) -> list[QWidget]:
         """按侧边栏显示顺序创建页面。页面需要 repo 或 service 时在这里传入。"""
+        gate_service = GateService(
+            RecordRepo(self.conn), VehicleRepo(self.conn), FeeRuleRepo(self.conn),
+        )
         return [
-            GatePage(),
+            GatePage(service=gate_service, operator=self.user.username),
             RecordPage(),
             ResidentPage(),
             VehiclePage(),
