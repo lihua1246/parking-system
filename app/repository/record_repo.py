@@ -1,4 +1,4 @@
-"""出入记录表读写。只增不删，不提供 delete（ADR-004）（负责人 D，REQ-008）。"""
+"""出入记录读写（D）。不提供删除，历史入场信息不随出场更新改变。"""
 import sqlite3
 from datetime import datetime
 
@@ -9,26 +9,61 @@ class RecordRepo:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
+    @staticmethod
+    def _from_row(row) -> ParkingRecord | None:
+        if row is None:
+            return None
+        return ParkingRecord(
+            id=row["id"], plate=row["plate"], vehicle_type=row["vehicle_type"],
+            enter_time=datetime.fromisoformat(row["enter_time"]),
+            exit_time=datetime.fromisoformat(row["exit_time"]) if row["exit_time"] else None,
+            fee=row["fee"], space_id=row["space_id"], operator=row["operator"],
+        )
+
     def add(self, obj: ParkingRecord) -> int:
-        """返回新记录的 id。"""
-        raise NotImplementedError("REQ-008 待 D 实现")
+        """新增一次停车，返回数据库分配的编号。"""
+        with self.conn:
+            cursor = self.conn.execute(
+                "INSERT INTO records "
+                "(plate, vehicle_type, enter_time, exit_time, fee, space_id, operator) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (obj.plate, obj.vehicle_type, obj.enter_time.isoformat(),
+                 obj.exit_time.isoformat() if obj.exit_time is not None else None,
+                 obj.fee, obj.space_id, obj.operator),
+            )
+        return cursor.lastrowid
 
     def update(self, obj: ParkingRecord) -> None:
-        raise NotImplementedError("REQ-008 待 D 实现")
+        """仅补全出场信息，不改写入场时的车牌、类型或操作员。"""
+        with self.conn:
+            self.conn.execute(
+                "UPDATE records SET exit_time = ?, fee = ? "
+                "WHERE id = ? AND exit_time IS NULL",
+                (obj.exit_time.isoformat() if obj.exit_time is not None else None,
+                 obj.fee, obj.id),
+            )
 
     def get(self, id: int) -> ParkingRecord | None:
-        """找不到返回 None。"""
-        raise NotImplementedError("REQ-008 待 D 实现")
+        row = self.conn.execute("SELECT * FROM records WHERE id = ?", (id,)).fetchone()
+        return self._from_row(row)
 
     def list_all(self) -> list[ParkingRecord]:
-        raise NotImplementedError("REQ-008 待 D 实现")
+        rows = self.conn.execute("SELECT * FROM records ORDER BY id").fetchall()
+        return [self._from_row(row) for row in rows]
 
     def get_present(self, plate: str) -> ParkingRecord | None:
-        """该车牌未出场的记录，没有则返回 None。"""
-        raise NotImplementedError("REQ-008 待 D 实现")
+        row = self.conn.execute(
+            "SELECT * FROM records WHERE plate = ? AND exit_time IS NULL ORDER BY id DESC LIMIT 1",
+            (plate,),
+        ).fetchone()
+        return self._from_row(row)
 
     def list_present(self) -> list[ParkingRecord]:
-        raise NotImplementedError("REQ-010 待 D 实现")
+        rows = self.conn.execute(
+            "SELECT * FROM records WHERE exit_time IS NULL ORDER BY id"
+        ).fetchall()
+        return [self._from_row(row) for row in rows]
 
     def list_between(self, start: datetime, end: datetime) -> list[ParkingRecord]:
+        """REQ-011 在后续任务中实现。"""
         raise NotImplementedError("REQ-011 待 D 实现")
