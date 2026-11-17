@@ -8,4 +8,17 @@ def is_valid_plate(plate: str) -> bool:
 
 def is_valid_phone(phone: str) -> bool:
     """REQ-003：11 位数字且以 1 开头。"""
-    raise NotImplementedError("REQ-003 待 B 实现")
+    if not phone:
+        return False
+    elif len(phone) != 11:
+        return False
+    elif phone[0] != '1':
+        return False
+    else:
+        for x in phone:
+            if '0' <= x <= '9':
+                continue
+            else:
+                return False
+        return True
+
