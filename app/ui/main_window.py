@@ -1,0 +1,68 @@
+"""主窗口：左侧导航 + 右侧页面区（负责人 A）。
+
+页面统一在 _build_pages 中注册，页面负责人不改本文件。
+按角色隐藏菜单属于 REQ-020，骨架阶段所有角色看到全部页面。
+"""
+from PySide6.QtWidgets import (
+    QHBoxLayout, QLabel, QListWidget, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+)
+
+from app.models.entities import User
+from app.ui.pages.alert_page import AlertPage
+from app.ui.pages.backup_page import BackupPage
+from app.ui.pages.fee_rule_page import FeeRulePage
+from app.ui.pages.gate_page import GatePage
+from app.ui.pages.record_page import RecordPage
+from app.ui.pages.reservation_page import ReservationPage
+from app.ui.pages.resident_page import ResidentPage
+from app.ui.pages.space_page import SpacePage
+from app.ui.pages.stats_page import StatsPage
+from app.ui.pages.user_page import UserPage
+from app.ui.pages.vehicle_page import VehiclePage
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, user: User, conn):
+        super().__init__()
+        self.user = user
+        self.conn = conn            # 数据库连接，之后用来创建各页面需要的 repo 和 service
+        self.setWindowTitle("小区车辆管理系统")
+        self.resize(1000, 640)
+
+        self.nav = QListWidget()
+        self.nav.setFixedWidth(160)
+        self.stack = QStackedWidget()
+
+        for page in self._build_pages():
+            self.nav.addItem(page.TITLE)
+            self.stack.addWidget(page)
+        # 点左侧哪一项，右侧就切到同一序号的页面
+        self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.setCurrentRow(0)
+
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.addWidget(QLabel(f"当前用户：{user.username}（{user.role}）"))
+        left_layout.addWidget(self.nav)
+
+        central = QWidget()
+        layout = QHBoxLayout(central)
+        layout.addWidget(left)
+        layout.addWidget(self.stack, 1)
+        self.setCentralWidget(central)
+
+    def _build_pages(self) -> list[QWidget]:
+        """按侧边栏显示顺序创建页面。页面需要 repo 或 service 时在这里传入。"""
+        return [
+            GatePage(),
+            RecordPage(),
+            ResidentPage(),
+            VehiclePage(),
+            SpacePage(),
+            ReservationPage(),
+            FeeRulePage(),
+            AlertPage(),
+            StatsPage(),
+            UserPage(),
+            BackupPage(),
+        ]
