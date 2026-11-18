@@ -82,6 +82,11 @@ class RecordPage(QWidget):
         else:
             self._show_message("出入记录尚未接入，请由组长传入记录仓库。", error=True)
 
+    def showEvent(self, event):
+        """每次切回记录页时按原筛选条件重查，并更新在场车辆的时长。"""
+        super().showEvent(event)
+        self._search()
+
     def _show_message(self, text: str, error: bool = False) -> None:
         self.message.setText(text)
         color = "#b42318" if error else "#067647"
