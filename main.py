@@ -3,28 +3,22 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from app.models.entities import ROLE_ADMIN, User
+from app.models.entities import User
 from app.repository.db import get_connection, init_db
+from app.repository.user_repo import UserRepo
+from app.services.auth import authenticate, ensure_default_admin
 from app.ui.login_window import LoginWindow
 from app.ui.main_window import MainWindow
-
-
-def skeleton_authenticate(username: str, password: str) -> User | None:
-    """骨架阶段的临时登录：只放行 admin / admin123，不查数据库。
-
-    任务卡 A-1（REQ-001）会换成查 users 表并用 verify_password 校验，届时删除本函数。
-    """
-    if username == "admin" and password == "admin123":
-        return User(id=None, username="admin", password_hash="", role=ROLE_ADMIN)
-    return None
 
 
 def main() -> int:
     conn = get_connection()
     init_db(conn)
+    user_repo = UserRepo(conn)
+    ensure_default_admin(user_repo)   # 首次启动写入 admin / admin123（只存哈希）
 
     app = QApplication(sys.argv)
-    login = LoginWindow(skeleton_authenticate)
+    login = LoginWindow(lambda username, password: authenticate(user_repo, username, password))
     windows = {}   # 保存主窗口的引用，防止被垃圾回收后窗口一闪而过
 
     def open_main(user: User) -> None:
