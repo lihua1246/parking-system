@@ -1,6 +1,7 @@
 """住户管理页面（负责人 B，REQ-003；任务卡 B-1）。
 
-界面只负责显示和收集输入；必填校验、手机号格式、"有车不能删"都在 ResidentService。
+页面拿的是 ResidentRepo：列表、搜索、新增、修改直接走 repo；
+只有删除走 ResidentService，因为"名下有车不能删"是业务规则，不是数据操作。
 """
 from PySide6.QtWidgets import (
     QHBoxLayout, QHeaderView, QLineEdit, QMessageBox, QPushButton,
@@ -8,6 +9,9 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.entities import Resident
+from app.repository.resident_repo import ResidentRepo
+from app.services.resident import ResidentService
+from app.services.validators import is_valid_phone
 
 COLUMNS = ["ID", "姓名", "楼栋", "房号", "手机号"]
 
@@ -15,9 +19,10 @@ COLUMNS = ["ID", "姓名", "楼栋", "房号", "手机号"]
 class ResidentPage(QWidget):
     TITLE = "住户管理"
 
-    def __init__(self, service=None, parent=None):
+    def __init__(self, resident_repo: ResidentRepo | None = None, parent=None):
         super().__init__(parent)
-        self.service = service
+        self.repo = resident_repo
+        self.service = ResidentService(resident_repo) if resident_repo is not None else None
         self.current_id: int | None = None
         self._build_ui()
         self.reload()
@@ -72,16 +77,19 @@ class ResidentPage(QWidget):
         layout.addWidget(self.table)
 
     def reload(self) -> None:
-        if self.service is None:
+        if self.repo is None:
             self.table.setRowCount(0)
             return
-        self._fill(self.service.list_all())
+        self._fill(self.repo.list_all())
 
     def search(self) -> None:
-        if self.service is None:
+        if self.repo is None:
             return
         keyword = self.keyword_edit.text().strip()
-        self._fill(self.service.search(keyword))
+        if not keyword:
+            self.reload()
+            return
+        self._fill(self.repo.search(keyword))
 
     def _fill(self, residents: list[Resident]) -> None:
         self.table.setRowCount(0)
@@ -112,6 +120,17 @@ class ResidentPage(QWidget):
             phone=self.phone_edit.text().strip(),
         )
 
+    def _checked_resident(self) -> Resident | None:
+        """表单校验。返回 None 表示提示过用户、本次操作放弃。"""
+        resident = self._form_resident()
+        if not resident.name or not resident.building or not resident.room:
+            QMessageBox.warning(self, "无法保存", "姓名、楼栋、房号都必须填写")
+            return None
+        if not is_valid_phone(resident.phone):
+            QMessageBox.warning(self, "无法保存", "手机号必须是 11 位数字，且以 1 开头")
+            return None
+        return resident
+
     def clear_form(self) -> None:
         self.current_id = None
         for widget in (self.name_edit, self.building_edit,
@@ -122,12 +141,11 @@ class ResidentPage(QWidget):
     def add(self) -> None:
         if not self._ready():
             return
-        self.current_id = None
-        try:
-            new_id = self.service.add(self._form_resident())
-        except ValueError as exc:
-            QMessageBox.warning(self, "无法新增", str(exc))
+        resident = self._checked_resident()
+        if resident is None:
             return
+        resident.id = None
+        new_id = self.repo.add(resident)
         self.clear_form()
         self.reload()
         self._select_id(new_id)
@@ -138,11 +156,10 @@ class ResidentPage(QWidget):
         if self.current_id is None:
             QMessageBox.information(self, "提示", "请先在表格中选中要修改的住户")
             return
-        try:
-            self.service.update(self._form_resident())
-        except ValueError as exc:
-            QMessageBox.warning(self, "无法保存", str(exc))
+        resident = self._checked_resident()
+        if resident is None:
             return
+        self.repo.update(resident)
         self.reload()
         self._select_id(self.current_id)
 
@@ -163,9 +180,9 @@ class ResidentPage(QWidget):
         self.reload()
 
     def _ready(self) -> bool:
-        if self.service is None:
+        if self.repo is None:
             QMessageBox.information(
-                self, "提示", "页面还没接入服务，需要组长在 main_window.py 中注册")
+                self, "提示", "页面还没接入数据仓库，需要组长在 main_window.py 中注册")
             return False
         return True
 
