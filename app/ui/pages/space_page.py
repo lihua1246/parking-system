@@ -1,8 +1,7 @@
 """车位管理页面（负责人 C，REQ-006；REQ-007 在后续任务卡中接入）。
 
 只调用 SpaceRepo，不写 SQL、不写业务公式（见 docs/03-架构与接口.md）。
-页面接收已构造好的 SpaceRepo；骨架的 main_window.py 目前还调用 SpacePage()，
-需要组长把注册改成 SpacePage(SpaceRepo(self.conn)) 后本页才可用。
+页面接收已构造好的 SpaceRepo，由 main_window.py 构造 SpaceRepo 并传入。
 """
 import sqlite3
 
