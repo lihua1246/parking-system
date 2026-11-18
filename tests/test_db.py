@@ -50,6 +50,15 @@ def test_space_fixed_vehicle_is_unique(conn):
         conn.execute(sql, ("A-002",))
 
 
+def test_space_status_is_checked(conn):
+    """REQ-006：状态只能是 free / occupied / reserved，其余值写不进去。"""
+    sql = "INSERT INTO spaces (code, zone, status) VALUES (?, 'A区', ?)"
+    for index, status in enumerate(("free", "occupied", "reserved")):
+        conn.execute(sql, (f"A-00{index}", status))
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(sql, ("A-999", "unknown"))
+
+
 def test_foreign_keys_enforced(conn):
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("INSERT INTO vehicles (plate, vehicle_type, resident_id) VALUES ('豫A1', 'monthly', 999)")

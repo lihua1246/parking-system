@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS spaces (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     code             TEXT NOT NULL UNIQUE,
     zone             TEXT NOT NULL,
-    status           TEXT NOT NULL,
+    status           TEXT NOT NULL CHECK (status IN ('free', 'occupied', 'reserved')),
     fixed_vehicle_id INTEGER UNIQUE REFERENCES vehicles(id)
 );
 
