@@ -1,4 +1,4 @@
-"""密码哈希、登录验证、权限判断（负责人 A，REQ-001、REQ-020）。
+"""密码哈希、登录验证、修改密码、权限判断（负责人 A，REQ-001、REQ-002、REQ-020）。
 
 哈希字符串格式：pbkdf2_sha256$迭代次数$盐(十六进制)$哈希(十六进制)
 把算法、迭代次数和盐都存进同一个字符串，验证时不需要再查别的地方；
@@ -16,6 +16,11 @@ SALT_BYTES = 16
 
 DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "admin123"
+
+MIN_PASSWORD_LENGTH = 6   # REQ-002：新密码少于 6 位时拒绝
+OLD_PASSWORD_WRONG_MSG = "旧密码不正确"
+NEW_PASSWORD_TOO_SHORT_MSG = f"新密码不能少于 {MIN_PASSWORD_LENGTH} 位"
+USER_NOT_FOUND_MSG = "用户不存在"
 
 
 def _pbkdf2(password: str, salt: bytes, iterations: int) -> bytes:
@@ -78,6 +83,24 @@ def ensure_default_admin(user_repo) -> None:
         password_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
         role=ROLE_ADMIN,
     ))
+
+
+def change_password(user_repo, user_id: int, old_password: str, new_password: str) -> None:
+    """修改自己的密码（REQ-002）。
+
+    先校验旧密码，再检查新密码长度，都通过后保存新密码的哈希。
+    任何一步不通过都抛 ValueError（消息可直接显示在界面上），且数据库不变。
+    修改后旧密码的哈希被覆盖，旧密码自然无法再登录。
+    """
+    user = user_repo.get(user_id)
+    if user is None:
+        raise ValueError(USER_NOT_FOUND_MSG)
+    if not verify_password(old_password, user.password_hash):
+        raise ValueError(OLD_PASSWORD_WRONG_MSG)
+    if len(new_password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(NEW_PASSWORD_TOO_SHORT_MSG)
+    user.password_hash = hash_password(new_password)
+    user_repo.update(user)
 
 
 def can_access(role: str, feature: str) -> bool:
