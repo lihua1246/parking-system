@@ -65,5 +65,30 @@ class RecordRepo:
         return [self._from_row(row) for row in rows]
 
     def list_between(self, start: datetime, end: datetime) -> list[ParkingRecord]:
-        """REQ-011 在后续任务中实现。"""
-        raise NotImplementedError("REQ-011 待 D 实现")
+        """按入场时间查询，包含 start、不包含 end；最新入场的记录在前。"""
+        return self.search(start=start, end=end)
+
+    def search(self, plate: str = "", start: datetime | None = None,
+               end: datetime | None = None) -> list[ParkingRecord]:
+        """按车牌包含匹配、入场时间取交集；空条件表示该项不限。"""
+        conditions = []
+        parameters = []
+        keyword = plate.strip()
+        if keyword:
+            # instr 按字面子串匹配，不把 %、_ 当成 SQL 通配符。
+            conditions.append("instr(plate, ?) > 0")
+            parameters.append(keyword)
+        if start is not None:
+            conditions.append("enter_time >= ?")
+            parameters.append(start.isoformat())
+        if end is not None:
+            conditions.append("enter_time < ?")
+            parameters.append(end.isoformat())
+
+        sql = "SELECT * FROM records"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        # 编号只用于同一入场时间下的稳定排序，不改变按入场时间倒序的约定。
+        sql += " ORDER BY enter_time DESC, id DESC"
+        rows = self.conn.execute(sql, parameters).fetchall()
+        return [self._from_row(row) for row in rows]

@@ -11,6 +11,13 @@ from app.models.entities import VEHICLE_MONTHLY, VEHICLE_TEMP, VEHICLE_VISITOR
 from app.services.gate import GateService
 
 
+def format_duration(enter: datetime, end: datetime) -> str:
+    """两页共用的时长文字：只格式化时间差，不计算停车费。"""
+    minutes = int((end - enter).total_seconds() // 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} 小时 {minutes} 分"
+
+
 class GatePage(QWidget):
     TITLE = "出入登记"
 
@@ -61,13 +68,6 @@ class GatePage(QWidget):
         else:
             self._show_message("出入登记尚未接入，请由组长传入业务服务和当前操作员。", error=True)
 
-    @staticmethod
-    def _duration(enter: datetime, end: datetime) -> str:
-        """仅将时间差格式化为界面文字，不计算停车费。"""
-        minutes = int((end - enter).total_seconds() // 60)
-        hours, minutes = divmod(minutes, 60)
-        return f"{hours} 小时 {minutes} 分"
-
     def _show_message(self, text: str, error: bool = False) -> None:
         self.message.setText(text)
         color = "#b42318" if error else "#067647"
@@ -83,7 +83,7 @@ class GatePage(QWidget):
             if exiting:
                 record = self.service.exit(plate, now, self.operator)
                 text = (f"出场成功：{record.plate}　停车时长："
-                        f"{self._duration(record.enter_time, record.exit_time)}　应收：{record.fee} 元")
+                        f"{format_duration(record.enter_time, record.exit_time)}　应收：{record.fee} 元")
             else:
                 record = self.service.enter(plate, now, self.operator)
                 text = f"入场成功：{record.plate}"
@@ -116,7 +116,7 @@ class GatePage(QWidget):
         for row, record in enumerate(records):
             values = (record.plate, names.get(record.vehicle_type, record.vehicle_type),
                       record.enter_time.strftime("%Y-%m-%d %H:%M"),
-                      self._duration(record.enter_time, now))
+                      format_duration(record.enter_time, now))
             for column, value in enumerate(values):
                 self.table.setItem(row, column, QTableWidgetItem(value))
         return True
