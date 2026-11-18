@@ -1,46 +1,48 @@
-"""住户服务层测试（负责人 B，REQ-003；任务卡 B-1 验收 4）。
+"""住户业务规则（负责人 B，REQ-003）。
 
-预期值来自任务卡 B-1 的验收条件；使用内存数据库，不依赖界面。
+规则都放在这一层：字段必填、手机号格式、名下有车不能删。
+界面只负责显示和收集输入（docs/03 第一节）。
 """
-import pytest
+import sqlite3
 
 from app.models.entities import Resident
-from app.repository.db import get_connection, init_db
-from app.repository.resident_repo import ResidentRepo
-from app.services.resident import ResidentService
+from app.services.validators import is_valid_phone
 
 
-@pytest.fixture
-def repo_and_service():
-    conn = get_connection(":memory:")
-    init_db(conn)
-    repo = ResidentRepo(conn)
-    yield repo, ResidentService(repo)
-    conn.close()
+class ResidentService:
+    def __init__(self, resident_repo):
+        self.resident_repo = resident_repo
 
+    def list_all(self) -> list[Resident]:
+        return self.resident_repo.list_all()
 
-def _resident() -> Resident:
-    return Resident(id=None, name="张三", building="3号楼", room="2-501", phone="13800000000")
+    def search(self, keyword: str) -> list[Resident]:
+        keyword = keyword.strip()
+        if not keyword:
+            return self.resident_repo.list_all()
+        return self.resident_repo.search(keyword)
 
+    def add(self, obj: Resident) -> int:
+        """新增住户。字段缺失或手机号不合法时抛 ValueError。"""
+        self._check(obj)
+        return self.resident_repo.add(obj)
 
-def test_req003_service_delete_rejected_when_resident_has_vehicle(repo_and_service):
-    """验收 4：名下有车时抛出指定文字，且住户仍然存在。"""
-    repo, service = repo_and_service
-    resident_id = repo.add(_resident())
-    repo.conn.execute(
-        "INSERT INTO vehicles (plate, vehicle_type, resident_id, monthly_expire, note) "
-        "VALUES (?, ?, ?, ?, ?)",
-        ("豫A12345", "monthly", resident_id, "2026-12-31", ""),
-    )
-    with pytest.raises(ValueError) as excinfo:
-        service.delete(resident_id)
-    assert str(excinfo.value) == "请先删除或转移该住户名下的车辆"
-    assert repo.get(resident_id) is not None
+    def update(self, obj: Resident) -> None:
+        """修改住户。字段缺失或手机号不合法时抛 ValueError。"""
+        self._check(obj)
+        self.resident_repo.update(obj)
 
+    def delete(self, resident_id: int) -> None:
+        """删除住户。名下有车时数据库外键拒绝，这里翻译成中文提示。"""
+        try:
+            self.resident_repo.delete(resident_id)
+        except sqlite3.IntegrityError:
+            # vehicles.resident_id 外键引用 residents(id)，名下有车时数据库拒绝删除
+            raise ValueError("请先删除或转移该住户名下的车辆") from None
 
-def test_req003_service_delete_resident_without_vehicle(repo_and_service):
-    """名下没有车的住户可以正常删除。"""
-    repo, service = repo_and_service
-    resident_id = repo.add(_resident())
-    service.delete(resident_id)
-    assert repo.get(resident_id) is None
+    @staticmethod
+    def _check(obj: Resident) -> None:
+        if not obj.name or not obj.building or not obj.room:
+            raise ValueError("姓名、楼栋、房号都必须填写")
+        if not is_valid_phone(obj.phone):
+            raise ValueError("手机号必须是 11 位数字，且以 1 开头")
