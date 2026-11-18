@@ -91,8 +91,9 @@ def get_connection(path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 def init_db(conn: sqlite3.Connection) -> None:
     """建表并写入默认收费规则。可以重复调用，不会重复插入。
 
-    默认管理员 admin / admin123 需要用 auth.hash_password 生成哈希，
-    在任务卡 A-1（REQ-001）中接入，骨架阶段先不写入。
+    默认管理员不在这里写入：生成密码哈希属于业务规则（services/auth.py），
+    repository 层不能反过来调用 services。由 main.py 在 init_db 之后调用
+    auth.ensure_default_admin 写入。
     """
     conn.executescript(_SCHEMA)
     conn.executemany(
