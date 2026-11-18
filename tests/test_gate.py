@@ -92,6 +92,22 @@ def test_req010_present_list_removes_only_exited_vehicle(gate):
     assert [r.plate for r in service.list_present()] == ["豫A54321"]
 
 
+@pytest.mark.parametrize("plate", ["豫a12345", "A12345", "豫A1234"])
+def test_req008_invalid_plate_rejected_without_record(gate, plate):
+    service, _ = gate
+    with pytest.raises(ValueError, match="^车牌格式不正确$"):
+        service.enter(plate, datetime(2026, 11, 17, 8), "guard_a")
+    assert service.record_repo.list_all() == []
+
+
+def test_req008_lowercase_plate_cannot_bypass_duplicate_check(gate):
+    service, _ = gate
+    service.enter("豫A12345", datetime(2026, 11, 17, 8), "guard_a")
+    with pytest.raises(ValueError):
+        service.enter("豫a12345", datetime(2026, 11, 17, 9), "guard_a")
+    assert len(service.list_present()) == 1
+
+
 def test_req008_can_enter_again_after_exit_without_changing_history(gate):
     service, _ = gate
     first = service.enter("豫A12345", datetime(2026, 11, 17, 8), "guard_a")
