@@ -20,6 +20,7 @@ from app.services.auth import (
     FEATURE_RESERVATION, FEATURE_RESIDENT, FEATURE_SPACE, FEATURE_STATS, FEATURE_USER,
     FEATURE_VEHICLE, can_access, change_password,
 )
+from app.services.backup import DEFAULT_BACKUP_DIR
 from app.services.gate import GateService
 from app.services.user import UserService
 from app.ui.change_password_dialog import ChangePasswordDialog
@@ -96,6 +97,6 @@ class MainWindow(QMainWindow):
             (FEATURE_ALERT, lambda: AlertPage()),
             (FEATURE_STATS, lambda: StatsPage()),
             (FEATURE_USER, lambda: UserPage(user_repo, UserService(user_repo), self.user)),
-            (FEATURE_BACKUP, lambda: BackupPage()),
+            (FEATURE_BACKUP, lambda: BackupPage(self.conn, DEFAULT_BACKUP_DIR)),
         ]
         return [make() for feature, make in registry if can_access(self.user.role, feature)]
