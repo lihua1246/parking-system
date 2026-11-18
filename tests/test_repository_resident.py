@@ -3,6 +3,7 @@
 预期值来自任务卡 B-1 与 docs/02-需求清单.md 的 REQ-003 验收条件，
 不依赖界面，使用内存数据库。
 """
+import sqlite3
 import pytest
 
 from app.models.entities import Resident
@@ -73,14 +74,14 @@ def test_req003_delete_removes_resident(repo):
     assert repo.list_all() == []
 
 
-def test_req003_delete_rejected_when_resident_has_vehicle(repo):
-    """任务卡 B-1 验收 4：名下有车辆的住户删除时提示指定文字。"""
+def test_req003_delete_with_vehicle_blocked_by_foreign_key(repo):
+    """repo 层删除有车住户时，由数据库外键拒绝；中文提示由服务层翻译。"""
     resident_id = repo.add(_resident("张三"))
     repo.conn.execute(
         "INSERT INTO vehicles (plate, vehicle_type, resident_id, monthly_expire, note) "
         "VALUES (?, ?, ?, ?, ?)",
         ("豫A12345", "monthly", resident_id, "2026-12-31", ""),
     )
-    with pytest.raises(ValueError, match="请先删除或转移该住户名下的车辆"):
+    with pytest.raises(sqlite3.IntegrityError):
         repo.delete(resident_id)
     assert repo.get(resident_id) is not None

@@ -26,14 +26,10 @@ class ResidentRepo:
             )
 
     def delete(self, id: int) -> None:
-        """删除住户。名下仍有车辆时拒绝（任务卡 B-1 验收 4）。"""
-        row = self.conn.execute(
-            "SELECT COUNT(*) AS n FROM vehicles WHERE resident_id = ?", (id,)
-        ).fetchone()
-        if row["n"] > 0:
-            raise ValueError("请先删除或转移该住户名下的车辆")
+        """直接删除住户；名下有车时由数据库外键拒绝（IntegrityError 交给服务层）。"""
         with self.conn:
             self.conn.execute("DELETE FROM residents WHERE id = ?", (id,))
+
 
     def get(self, id: int) -> Resident | None:
         """找不到返回 None。"""
