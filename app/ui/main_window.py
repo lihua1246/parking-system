@@ -17,6 +17,7 @@ from app.repository.user_repo import UserRepo
 from app.repository.vehicle_repo import VehicleRepo
 from app.services.auth import change_password
 from app.services.gate import GateService
+from app.services.user import UserService
 from app.ui.change_password_dialog import ChangePasswordDialog
 from app.ui.pages.alert_page import AlertPage
 from app.ui.pages.backup_page import BackupPage
@@ -73,6 +74,7 @@ class MainWindow(QMainWindow):
 
     def _build_pages(self) -> list[QWidget]:
         """按侧边栏显示顺序创建页面。页面需要 repo 或 service 时在这里传入。"""
+        user_repo = UserRepo(self.conn)
         gate_service = GateService(
             RecordRepo(self.conn), VehicleRepo(self.conn), FeeRuleRepo(self.conn),
         )
@@ -86,6 +88,6 @@ class MainWindow(QMainWindow):
             FeeRulePage(),
             AlertPage(),
             StatsPage(),
-            UserPage(),
+            UserPage(user_repo, UserService(user_repo), self.user),
             BackupPage(),
         ]
