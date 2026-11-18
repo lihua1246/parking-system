@@ -3,6 +3,7 @@ from dataclasses import replace
 from datetime import datetime
 
 from app.models.entities import ParkingRecord, VEHICLE_TEMP
+from app.services.validators import is_valid_plate
 
 
 class GateService:
@@ -12,7 +13,12 @@ class GateService:
         self.fee_rule_repo = fee_rule_repo
 
     def enter(self, plate: str, now: datetime, operator: str) -> ParkingRecord:
-        """车牌已在场时抛出 ValueError。"""
+        """车牌格式不正确或车牌已在场时抛出 ValueError。
+
+        先校验格式，避免 "豫a12345" 与 "豫A12345" 被当成两辆车同时在场。
+        """
+        if not is_valid_plate(plate):
+            raise ValueError("车牌格式不正确")
         if self.record_repo.get_present(plate) is not None:
             raise ValueError("该车辆已在场内")
         vehicle = self.vehicle_repo.get_by_plate(plate)
@@ -25,10 +31,12 @@ class GateService:
         return record
 
     def exit(self, plate: str, now: datetime, operator: str) -> ParkingRecord:
-        """找不到在场记录时抛出 ValueError。"""
+        """找不到在场记录、或出场时间早于入场时间时抛出 ValueError。"""
         record = self.record_repo.get_present(plate)
         if record is None:
             raise ValueError("未找到在场记录")
+        if now < record.enter_time:
+            raise ValueError("出场时间不能早于入场时间")
         # 保留入场快照；D-1 暂不使用收费规则，费用固定为整数 0。
         exited = replace(record, exit_time=now, fee=0)
         self.record_repo.update(exited)

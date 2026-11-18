@@ -7,7 +7,9 @@ from pathlib import Path
 
 from app.models.entities import VEHICLE_TEMP, VEHICLE_VISITOR
 
-DEFAULT_DB_PATH = "data/parking.db"
+# 以项目根目录为基准，避免从其他目录启动程序时新建一个空库
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_DB_PATH = str(PROJECT_ROOT / "data" / "parking.db")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (

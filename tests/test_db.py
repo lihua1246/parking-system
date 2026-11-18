@@ -61,3 +61,13 @@ def test_get_connection_creates_parent_dir(tmp_path):
     init_db(c)
     c.close()
     assert path.exists()
+
+
+def test_default_db_path_is_under_project_root():
+    """从任意目录启动都指向同一个库文件，不受当前工作目录影响。"""
+    from pathlib import Path
+
+    from app.repository.db import DEFAULT_DB_PATH
+
+    expected = Path(__file__).resolve().parent.parent / "data" / "parking.db"
+    assert Path(DEFAULT_DB_PATH) == expected

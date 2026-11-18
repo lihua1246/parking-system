@@ -15,26 +15,26 @@ class SpaceRepo:
 
     def add(self, obj: ParkingSpace) -> int:
         """返回新记录的 id。编号重复时由表的 UNIQUE 约束抛出 IntegrityError。"""
-        cur = self.conn.execute(
-            "INSERT INTO spaces (code, zone, status, fixed_vehicle_id) VALUES (?, ?, ?, ?)",
-            (obj.code, obj.zone, obj.status, obj.fixed_vehicle_id),
-        )
-        self.conn.commit()
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO spaces (code, zone, status, fixed_vehicle_id) VALUES (?, ?, ?, ?)",
+                (obj.code, obj.zone, obj.status, obj.fixed_vehicle_id),
+            )
         return int(cur.lastrowid)
 
     def update(self, obj: ParkingSpace) -> None:
         if obj.id is None:
             raise ValueError("更新车位时必须提供 id")
-        self.conn.execute(
-            "UPDATE spaces SET code = ?, zone = ?, status = ?, fixed_vehicle_id = ? "
-            "WHERE id = ?",
-            (obj.code, obj.zone, obj.status, obj.fixed_vehicle_id, obj.id),
-        )
-        self.conn.commit()
+        with self.conn:
+            self.conn.execute(
+                "UPDATE spaces SET code = ?, zone = ?, status = ?, fixed_vehicle_id = ? "
+                "WHERE id = ?",
+                (obj.code, obj.zone, obj.status, obj.fixed_vehicle_id, obj.id),
+            )
 
     def delete(self, id: int) -> None:
-        self.conn.execute("DELETE FROM spaces WHERE id = ?", (id,))
-        self.conn.commit()
+        with self.conn:
+            self.conn.execute("DELETE FROM spaces WHERE id = ?", (id,))
 
     def get(self, id: int) -> ParkingSpace | None:
         """找不到返回 None。"""
