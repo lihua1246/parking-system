@@ -104,3 +104,11 @@ def init_db(conn: sqlite3.Connection) -> None:
         DEFAULT_FEE_RULES,
     )
     conn.commit()
+
+
+def list_tables(conn: sqlite3.Connection) -> set[str]:
+    """返回数据库中所有表名（不含 SQLite 内部表）。备份还原时用来确认文件是本系统的数据库。"""
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    return {row[0] for row in rows}
