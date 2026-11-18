@@ -1,5 +1,21 @@
-"""REQ-003 验收条件 3：手机号 11 位数字且以 1 开头（负责人 B）。"""
-from app.services.validators import is_valid_phone
+"""REQ-003 验收条件 3：手机号 11 位数字且以 1 开头；REQ-005 车牌格式（负责人 B）。"""
+import pytest
+
+from app.services.validators import is_valid_phone, is_valid_plate
+
+
+@pytest.mark.parametrize("plate", ["豫A12345", "豫AD12345"])
+def test_req005_valid_plates_accepted(plate):
+    assert is_valid_plate(plate) is True
+
+
+@pytest.mark.parametrize("plate", ["A12345", "豫A1234", "豫a12345"])
+def test_req005_invalid_plates_rejected(plate):
+    assert is_valid_plate(plate) is False
+
+
+def test_req005_empty_plate_rejected():
+    assert is_valid_plate("") is False
 
 
 def test_req003_valid_phone_accepted():
