@@ -1,4 +1,4 @@
-"""密码哈希、登录验证、修改密码、权限判断（负责人 A，REQ-001、REQ-002、REQ-020）。
+"""密码哈希、登录验证、修改密码、角色权限（负责人 A，REQ-001、REQ-002、REQ-020）。
 
 哈希字符串格式：pbkdf2_sha256$迭代次数$盐(十六进制)$哈希(十六进制)
 把算法、迭代次数和盐都存进同一个字符串，验证时不需要再查别的地方；
@@ -8,7 +8,7 @@ import hashlib
 import hmac
 import secrets
 
-from app.models.entities import ROLE_ADMIN, User
+from app.models.entities import ROLE_ADMIN, ROLE_GUARD, User
 
 ALGORITHM = "pbkdf2_sha256"
 ITERATIONS = 100_000        # 迭代次数越多越难暴力破解，但登录也越慢；10 万次约几十毫秒
@@ -21,6 +21,35 @@ MIN_PASSWORD_LENGTH = 6   # REQ-002：新密码少于 6 位时拒绝
 OLD_PASSWORD_WRONG_MSG = "旧密码不正确"
 NEW_PASSWORD_TOO_SHORT_MSG = f"新密码不能少于 {MIN_PASSWORD_LENGTH} 位"
 USER_NOT_FOUND_MSG = "用户不存在"
+
+# ---------- REQ-020 角色权限 ----------
+# 功能编号与主窗口侧边栏的页面一一对应
+FEATURE_GATE = "gate"              # 出入登记
+FEATURE_RECORD = "record"          # 出入记录
+FEATURE_RESIDENT = "resident"      # 住户管理
+FEATURE_VEHICLE = "vehicle"        # 车辆管理
+FEATURE_SPACE = "space"            # 车位管理
+FEATURE_RESERVATION = "reservation"  # 车位预约
+FEATURE_FEE_RULE = "fee_rule"      # 收费规则
+FEATURE_ALERT = "alert"            # 预警
+FEATURE_STATS = "stats"            # 统计报表
+FEATURE_USER = "user"              # 用户管理
+FEATURE_BACKUP = "backup"          # 数据备份
+
+ALL_FEATURES = frozenset({
+    FEATURE_GATE, FEATURE_RECORD, FEATURE_RESIDENT, FEATURE_VEHICLE, FEATURE_SPACE,
+    FEATURE_RESERVATION, FEATURE_FEE_RULE, FEATURE_ALERT, FEATURE_STATS, FEATURE_USER,
+    FEATURE_BACKUP,
+})
+
+# 白名单：每个角色只能用列出的功能，没列出的一律不能用（ADR-007）。
+# 门卫不能用住户、车辆、车位、收费规则、用户管理（REQ-020），以及数据备份（ADR-007 补充）。
+ROLE_FEATURES = {
+    ROLE_ADMIN: ALL_FEATURES,
+    ROLE_GUARD: frozenset({
+        FEATURE_GATE, FEATURE_RECORD, FEATURE_RESERVATION, FEATURE_ALERT, FEATURE_STATS,
+    }),
+}
 
 
 def _pbkdf2(password: str, salt: bytes, iterations: int) -> bytes:
@@ -104,5 +133,5 @@ def change_password(user_repo, user_id: int, old_password: str, new_password: st
 
 
 def can_access(role: str, feature: str) -> bool:
-    """角色能否使用某功能。"""
-    raise NotImplementedError("REQ-020 待 A 实现")
+    """角色能否使用某功能（REQ-020）。未知角色或未知功能一律返回 False。"""
+    return feature in ROLE_FEATURES.get(role, frozenset())
