@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from app.models.entities import User
 from app.repository.fee_rule_repo import FeeRuleRepo
 from app.repository.record_repo import RecordRepo
+from app.repository.resident_repo import ResidentRepo
 from app.repository.space_repo import SpaceRepo
 from app.repository.user_repo import UserRepo
 from app.repository.vehicle_repo import VehicleRepo
@@ -78,7 +79,7 @@ class MainWindow(QMainWindow):
         return [
             GatePage(service=gate_service, operator=self.user.username),
             RecordPage(),
-            ResidentPage(),
+            ResidentPage(ResidentRepo(self.conn)),
             VehiclePage(),
             SpacePage(SpaceRepo(self.conn)),
             ReservationPage(),
