@@ -4,15 +4,19 @@
 按角色隐藏菜单属于 REQ-020，骨架阶段所有角色看到全部页面。
 """
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QListWidget, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QListWidget, QMainWindow, QPushButton, QStackedWidget, QVBoxLayout,
+    QWidget,
 )
 
 from app.models.entities import User
 from app.repository.fee_rule_repo import FeeRuleRepo
 from app.repository.record_repo import RecordRepo
 from app.repository.space_repo import SpaceRepo
+from app.repository.user_repo import UserRepo
 from app.repository.vehicle_repo import VehicleRepo
+from app.services.auth import change_password
 from app.services.gate import GateService
+from app.ui.change_password_dialog import ChangePasswordDialog
 from app.ui.pages.alert_page import AlertPage
 from app.ui.pages.backup_page import BackupPage
 from app.ui.pages.fee_rule_page import FeeRulePage
@@ -49,12 +53,22 @@ class MainWindow(QMainWindow):
         left_layout = QVBoxLayout(left)
         left_layout.addWidget(QLabel(f"当前用户：{user.username}（{user.role}）"))
         left_layout.addWidget(self.nav)
+        change_pwd_button = QPushButton("修改密码")   # REQ-002：所有角色都能改自己的密码
+        change_pwd_button.clicked.connect(self._open_change_password)
+        left_layout.addWidget(change_pwd_button)
 
         central = QWidget()
         layout = QHBoxLayout(central)
         layout.addWidget(left)
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(central)
+
+    def _open_change_password(self) -> None:
+        user_repo = UserRepo(self.conn)
+        dialog = ChangePasswordDialog(
+            lambda old, new: change_password(user_repo, self.user.id, old, new), self,
+        )
+        dialog.exec()
 
     def _build_pages(self) -> list[QWidget]:
         """按侧边栏显示顺序创建页面。页面需要 repo 或 service 时在这里传入。"""
