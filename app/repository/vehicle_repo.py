@@ -1,5 +1,6 @@
 """车辆表读写（负责人 B，REQ-004）。"""
 import sqlite3
+from datetime import date
 
 from app.models.entities import Vehicle
 
@@ -26,5 +27,22 @@ class VehicleRepo:
         raise NotImplementedError("REQ-004 待 B 实现")
 
     def get_by_plate(self, plate: str) -> Vehicle | None:
-        """GateService 入场时用来确定车辆类型。"""
-        raise NotImplementedError("REQ-004 待 B 实现")
+        """GateService 入场时用来确定车辆类型。找不到返回 None。"""
+        row = self.conn.execute(
+            "SELECT id, plate, vehicle_type, resident_id, monthly_expire, note "
+            "FROM vehicles WHERE plate = ?",
+            (plate,),
+        ).fetchone()
+        return self._to_vehicle(row) if row is not None else None
+
+    @staticmethod
+    def _to_vehicle(row: sqlite3.Row) -> Vehicle:
+        expire = row["monthly_expire"]
+        return Vehicle(
+            id=row["id"],
+            plate=row["plate"],
+            vehicle_type=row["vehicle_type"],
+            resident_id=row["resident_id"],
+            monthly_expire=date.fromisoformat(expire) if expire else None,
+            note=row["note"],
+        )
