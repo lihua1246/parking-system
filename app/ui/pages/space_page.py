@@ -1,6 +1,6 @@
 """车位管理页面（负责人 C，REQ-006；REQ-007 在后续任务卡中接入）。
 
-只调用 SpaceRepo，不写 SQL、不写业务公式（见 docs/03-架构与接口.md）。
+查询和保存调用 SpaceRepo，删除走 SpaceService（含占用、预约检查）；不写 SQL、不写业务公式（见 docs/03-架构与接口.md）。
 页面接收已构造好的 SpaceRepo，由 main_window.py 构造 SpaceRepo 并传入。
 """
 import sqlite3
