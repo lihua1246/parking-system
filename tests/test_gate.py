@@ -82,6 +82,22 @@ def test_req009_absent_plate_rejected(gate):
     assert service.record_repo.list_all() == []
 
 
+def test_req009_exit_before_enter_rejected_and_record_unchanged(gate):
+    service, _ = gate
+    entered = service.enter("豫A12345", datetime(2026, 11, 17, 8), "guard_a")
+    with pytest.raises(ValueError, match="^出场时间不能早于入场时间$"):
+        service.exit("豫A12345", datetime(2026, 11, 17, 7, 59), "guard_b")
+    assert service.record_repo.get(entered.id) == entered
+    assert [r.plate for r in service.list_present()] == ["豫A12345"]
+
+
+def test_req009_exit_at_same_moment_allowed(gate):
+    service, _ = gate
+    service.enter("豫A12345", datetime(2026, 11, 17, 8), "guard_a")
+    exited = service.exit("豫A12345", datetime(2026, 11, 17, 8), "guard_b")
+    assert exited.exit_time == exited.enter_time
+
+
 def test_req010_present_list_removes_only_exited_vehicle(gate):
     service, _ = gate
     assert service.list_present() == []

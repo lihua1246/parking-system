@@ -31,10 +31,12 @@ class GateService:
         return record
 
     def exit(self, plate: str, now: datetime, operator: str) -> ParkingRecord:
-        """找不到在场记录时抛出 ValueError。"""
+        """找不到在场记录、或出场时间早于入场时间时抛出 ValueError。"""
         record = self.record_repo.get_present(plate)
         if record is None:
             raise ValueError("未找到在场记录")
+        if now < record.enter_time:
+            raise ValueError("出场时间不能早于入场时间")
         # 保留入场快照；D-1 暂不使用收费规则，费用固定为整数 0。
         exited = replace(record, exit_time=now, fee=0)
         self.record_repo.update(exited)
