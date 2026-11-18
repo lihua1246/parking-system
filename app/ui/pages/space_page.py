@@ -1,9 +1,3 @@
-"""车位管理页面（负责人 C，REQ-006；REQ-007 在后续任务卡中接入）。
-
-只调用 SpaceRepo，不写 SQL、不写业务公式（见 docs/03-架构与接口.md）。
-页面接收已构造好的 SpaceRepo；骨架的 main_window.py 目前还调用 SpacePage()，
-需要组长把注册改成 SpacePage(SpaceRepo(self.conn)) 后本页才可用。
-"""
 import sqlite3
 
 from PySide6.QtCore import Qt
@@ -38,8 +32,6 @@ class SpacePage(QWidget):
         else:
             self._reload_zone_filter()
             self.refresh()
-
-    # ---------- 界面 ----------
 
     def _build_ui(self) -> None:
         self.zone_filter = QComboBox()
@@ -108,13 +100,10 @@ class SpacePage(QWidget):
         self.clear_button.clicked.connect(self._clear_form)
 
     def _show_missing_repo(self) -> None:
-        """骨架阶段 main_window 还没有注入 repo：禁用操作，避免程序启动即崩溃。"""
         self.setEnabled(False)
         self.status_label.setText(
             "数据源未接入：等待组长在 main_window.py 中改为 SpacePage(SpaceRepo(conn))"
         )
-
-    # ---------- 数据 ----------
 
     def refresh(self, *_args) -> None:
         if self.repo is None:
@@ -139,7 +128,6 @@ class SpacePage(QWidget):
         self._clear_form()
 
     def _reload_zone_filter(self) -> None:
-        """区域下拉的选项来自现有车位；重建时屏蔽信号，避免触发多次刷新。"""
         if self.repo is None:
             return
         previous = self.zone_filter.currentData()
@@ -153,8 +141,6 @@ class SpacePage(QWidget):
         index = self.zone_filter.findData(previous)
         self.zone_filter.setCurrentIndex(index if index >= 0 else 0)
         self.zone_filter.blockSignals(False)
-
-    # ---------- 表单与操作 ----------
 
     def _selected_id(self) -> int | None:
         row = self.table.currentRow()
@@ -192,7 +178,7 @@ class SpacePage(QWidget):
             code=code,
             zone=zone,
             status=self.status_edit.currentData(),
-            fixed_vehicle_id=None,      # REQ-007 接入前不在这里修改固定车辆
+            fixed_vehicle_id=None,
         )
 
     def _on_refresh_clicked(self) -> None:
@@ -214,7 +200,6 @@ class SpacePage(QWidget):
         self.refresh()
 
     def _reset_filters(self) -> None:
-        """新增后回到"全部"，否则车位可能被当前筛选条件挡住，看起来像没保存。"""
         for combo in (self.zone_filter, self.status_filter):
             combo.blockSignals(True)
             combo.setCurrentIndex(0)
@@ -227,7 +212,6 @@ class SpacePage(QWidget):
         space = self._form_space()
         if space is None:
             return
-        # 保留原有固定车辆绑定，避免 REQ-006 的修改把 REQ-007 的数据抹掉
         existing = self.repo.get(self._current_id)
         if existing is not None:
             space.fixed_vehicle_id = existing.fixed_vehicle_id
@@ -250,7 +234,6 @@ class SpacePage(QWidget):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
-        # 能否删除由 SpaceService 判断，页面只负责显示结果
         try:
             self.service.delete(self._current_id)
         except ValueError as exc:

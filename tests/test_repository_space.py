@@ -1,8 +1,3 @@
-"""车位表读写测试（负责人 C，REQ-006；任务卡 C-1）。
-
-预期值来自任务卡 C-1 与 docs/02-需求清单.md 的 REQ-006 验收条件，
-不依赖界面，使用内存数据库。
-"""
 import sqlite3
 
 import pytest
@@ -33,7 +28,6 @@ def test_req006_add_returns_id_and_get_roundtrip(repo):
 
 
 def test_req006_duplicate_code_rejected(repo):
-    """任务卡验收 1：车位编号唯一。"""
     repo.add(_space("A-001"))
     with pytest.raises(sqlite3.IntegrityError):
         repo.add(_space("A-001"))
@@ -41,7 +35,6 @@ def test_req006_duplicate_code_rejected(repo):
 
 
 def test_req006_list_by_zone_and_status(repo):
-    """任务卡验收 2、3：两个条件同时生效；都不选时显示全部。"""
     repo.add(_space("A-001", "A区", SPACE_FREE))
     repo.add(_space("A-002", "A区", SPACE_OCCUPIED))
     repo.add(_space("B-001", "B区", SPACE_FREE))
@@ -61,7 +54,6 @@ def test_req006_update_changes_fields(repo):
 
 
 def test_req006_update_to_existing_code_rejected(repo):
-    """修改编号时同样受唯一约束保护。"""
     first = repo.add(_space("A-001"))
     repo.add(_space("A-002"))
     with pytest.raises(sqlite3.IntegrityError):
