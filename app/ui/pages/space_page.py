@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from app.models.entities import SPACE_FREE, SPACE_OCCUPIED, SPACE_RESERVED, ParkingSpace
 from app.repository.space_repo import SpaceRepo
+from app.services.space import SpaceService
 
 STATUS_LABELS = {
     SPACE_FREE: "空闲",
@@ -29,6 +30,7 @@ class SpacePage(QWidget):
     def __init__(self, space_repo: SpaceRepo | None = None, parent=None):
         super().__init__(parent)
         self.repo = space_repo
+        self.service = SpaceService(space_repo) if space_repo is not None else None
         self._current_id: int | None = None
         self._build_ui()
         if self.repo is None:
@@ -241,20 +243,19 @@ class SpacePage(QWidget):
         if self._current_id is None:
             QMessageBox.warning(self, "提示", "请先在列表中选择一个车位")
             return
-        space = self.repo.get(self._current_id)
-        if space is None:
-            self.refresh()
-            QMessageBox.warning(self, "提示", "该车位已不存在，请刷新")
-            return
-        if space.status == SPACE_OCCUPIED:
-            QMessageBox.warning(self, "提示", "车位正在使用，不能删除")
-            return
+        code = self.code_edit.text().strip() or str(self._current_id)
         answer = QMessageBox.question(
-            self, "确认删除", f"确定删除车位 {space.code} 吗？",
+            self, "确认删除", f"确定删除车位 {code} 吗？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
-        self.repo.delete(space.id)
+        # 能否删除由 SpaceService 判断，页面只负责显示结果
+        try:
+            self.service.delete(self._current_id)
+        except ValueError as exc:
+            QMessageBox.warning(self, "提示", str(exc))
+            self.refresh()
+            return
         self._reload_zone_filter()
         self.refresh()
