@@ -1,7 +1,7 @@
 """主窗口：左侧导航 + 右侧页面区（负责人 A）。
 
 页面统一在 _build_pages 中注册，页面负责人不改本文件。
-按角色隐藏菜单属于 REQ-020，骨架阶段所有角色看到全部页面。
+按角色隐藏页面（REQ-020）：每个页面登记一个功能编号，can_access 不通过的页面不创建、不出现在侧边栏。
 """
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QListWidget, QMainWindow, QPushButton, QStackedWidget, QVBoxLayout,
@@ -15,7 +15,11 @@ from app.repository.resident_repo import ResidentRepo
 from app.repository.space_repo import SpaceRepo
 from app.repository.user_repo import UserRepo
 from app.repository.vehicle_repo import VehicleRepo
-from app.services.auth import change_password
+from app.services.auth import (
+    FEATURE_ALERT, FEATURE_BACKUP, FEATURE_FEE_RULE, FEATURE_GATE, FEATURE_RECORD,
+    FEATURE_RESERVATION, FEATURE_RESIDENT, FEATURE_SPACE, FEATURE_STATS, FEATURE_USER,
+    FEATURE_VEHICLE, can_access, change_password,
+)
 from app.services.gate import GateService
 from app.services.user import UserService
 from app.ui.change_password_dialog import ChangePasswordDialog
@@ -73,21 +77,25 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def _build_pages(self) -> list[QWidget]:
-        """按侧边栏显示顺序创建页面。页面需要 repo 或 service 时在这里传入。"""
+        """按侧边栏显示顺序创建当前角色能用的页面。页面需要 repo 或 service 时在这里传入。
+
+        每项是（功能编号, 创建页面的函数）：先判断权限再创建，没权限的页面根本不会被构造。
+        """
         user_repo = UserRepo(self.conn)
         gate_service = GateService(
             RecordRepo(self.conn), VehicleRepo(self.conn), FeeRuleRepo(self.conn),
         )
-        return [
-            GatePage(service=gate_service, operator=self.user.username),
-            RecordPage(),
-            ResidentPage(ResidentRepo(self.conn)),
-            VehiclePage(),
-            SpacePage(SpaceRepo(self.conn)),
-            ReservationPage(),
-            FeeRulePage(),
-            AlertPage(),
-            StatsPage(),
-            UserPage(user_repo, UserService(user_repo), self.user),
-            BackupPage(),
+        registry = [
+            (FEATURE_GATE, lambda: GatePage(service=gate_service, operator=self.user.username)),
+            (FEATURE_RECORD, lambda: RecordPage()),
+            (FEATURE_RESIDENT, lambda: ResidentPage(ResidentRepo(self.conn))),
+            (FEATURE_VEHICLE, lambda: VehiclePage()),
+            (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn))),
+            (FEATURE_RESERVATION, lambda: ReservationPage()),
+            (FEATURE_FEE_RULE, lambda: FeeRulePage()),
+            (FEATURE_ALERT, lambda: AlertPage()),
+            (FEATURE_STATS, lambda: StatsPage()),
+            (FEATURE_USER, lambda: UserPage(user_repo, UserService(user_repo), self.user)),
+            (FEATURE_BACKUP, lambda: BackupPage()),
         ]
+        return [make() for feature, make in registry if can_access(self.user.role, feature)]
