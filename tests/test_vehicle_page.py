@@ -5,8 +5,9 @@
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from app.models.entities import VEHICLE_TEMP, Vehicle
+from app.models.entities import VEHICLE_TEMP, Resident, Vehicle
 from app.repository.db import get_connection, init_db
+from app.repository.resident_repo import ResidentRepo
 from app.repository.vehicle_repo import VehicleRepo
 from app.ui.pages.vehicle_page import VehiclePage
 
@@ -26,9 +27,64 @@ def repo():
     conn.close()
 
 
-def _temp_vehicle(plate: str) -> Vehicle:
+@pytest.fixture
+def resident_repo(repo):
+    """与 repo 共用同一个内存库。"""
+    return ResidentRepo(repo.conn)
+
+
+def _temp_vehicle(plate: str, resident_id: int | None = None) -> Vehicle:
     return Vehicle(id=None, plate=plate, vehicle_type=VEHICLE_TEMP,
-                   resident_id=None, monthly_expire=None, note="")
+                   resident_id=resident_id, monthly_expire=None, note="")
+
+
+def _plates(page: VehiclePage) -> list[str]:
+    return [page.table.item(row, 1).text() for row in range(page.table.rowCount())]
+
+
+def test_req004_search_by_plate_keyword(qapp, repo):
+    """验收 4（前半）：搜索"A123"能找到 豫A12345。"""
+    repo.add(_temp_vehicle("豫A12345"))
+    repo.add(_temp_vehicle("豫B67890"))
+    page = VehiclePage(repo)
+    page.keyword_edit.setText("A123")
+    page.search()
+    assert _plates(page) == ["豫A12345"]
+
+
+def test_req004_search_by_resident_shows_only_their_vehicles(qapp, repo, resident_repo):
+    """验收 4（后半）：按住户"张三"查询只显示张三名下的车辆。"""
+    zhang = resident_repo.add(Resident(None, "张三", "3号楼", "2-501", "13800000000"))
+    li = resident_repo.add(Resident(None, "李四", "1号楼", "1-101", "13900000001"))
+    repo.add(_temp_vehicle("豫A12345", zhang))
+    repo.add(_temp_vehicle("豫A54321", zhang))
+    repo.add(_temp_vehicle("豫B67890", li))
+    repo.add(_temp_vehicle("豫C11111"))
+    page = VehiclePage(repo, resident_repo)
+
+    page.resident_filter.setCurrentIndex(page.resident_filter.findData(zhang))
+    page.search_by_resident()
+
+    assert page.resident_filter.currentText().startswith("张三")
+    assert _plates(page) == ["豫A12345", "豫A54321"]
+
+
+def test_req004_resident_filter_picks_up_new_residents(qapp, repo, resident_repo):
+    """住户页面后来新增的住户，点"显示全部"后出现在下拉框里。"""
+    page = VehiclePage(repo, resident_repo)
+    assert page.resident_filter.count() == 0
+    resident_repo.add(Resident(None, "张三", "3号楼", "2-501", "13800000000"))
+    page.reload()
+    assert page.resident_filter.count() == 1
+
+
+def test_req004_search_by_resident_with_no_residents(qapp, repo, resident_repo, monkeypatch):
+    """还没有住户时提示，而不是报错。"""
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a[2]))
+    page = VehiclePage(repo, resident_repo)
+    page.search_by_resident()
+    assert infos == ["还没有住户，请先在住户管理中登记"]
 
 
 def test_req004_page_constructs_with_real_repo(qapp, repo):

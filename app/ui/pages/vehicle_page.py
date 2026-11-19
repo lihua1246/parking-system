@@ -2,6 +2,9 @@
 
 查询直接走 VehicleRepo；新增/修改/删除走 VehicleService，
 因为车牌格式、月租车必填项、车牌唯一这些规则都在服务层。
+按住户查询用 ResidentRepo.list_all 填下拉框，再调 VehicleRepo.list_by_resident。
+
+构造：VehiclePage(vehicle_repo, resident_repo)
 """
 from datetime import date
 
@@ -14,6 +17,7 @@ from PySide6.QtWidgets import (
 from app.models.entities import (
     VEHICLE_MONTHLY, VEHICLE_TEMP, VEHICLE_TYPES, VEHICLE_VISITOR, Vehicle,
 )
+from app.repository.resident_repo import ResidentRepo
 from app.repository.vehicle_repo import VehicleRepo
 from app.services.vehicle import VehicleService
 
@@ -24,9 +28,11 @@ TYPE_LABELS = {VEHICLE_MONTHLY: "月租车", VEHICLE_TEMP: "临时车", VEHICLE_
 class VehiclePage(QWidget):
     TITLE = "车辆管理"
 
-    def __init__(self, vehicle_repo: VehicleRepo | None = None, parent=None):
+    def __init__(self, vehicle_repo: VehicleRepo | None = None,
+                 resident_repo: ResidentRepo | None = None, parent=None):
         super().__init__(parent)
         self.repo = vehicle_repo
+        self.resident_repo = resident_repo
         self.service = VehicleService(vehicle_repo) if vehicle_repo is not None else None
         self.current_id: int | None = None
         self._build_ui()
@@ -46,6 +52,16 @@ class VehiclePage(QWidget):
         search_row.addWidget(self.keyword_edit)
         search_row.addWidget(search_btn)
         search_row.addWidget(show_all_btn)
+
+        self.resident_filter = QComboBox()
+        self.resident_filter.setMinimumContentsLength(10)
+        resident_search_btn = QPushButton("按住户查询")
+        resident_search_btn.clicked.connect(self.search_by_resident)
+        if self.resident_repo is None:
+            self.resident_filter.setEnabled(False)
+            resident_search_btn.setEnabled(False)
+        search_row.addWidget(self.resident_filter)
+        search_row.addWidget(resident_search_btn)
         layout.addLayout(search_row)
 
         self.plate_edit = QLineEdit()
@@ -105,10 +121,40 @@ class VehiclePage(QWidget):
 
     # ---------- 数据 ----------
     def reload(self) -> None:
+        self._refresh_residents()
         if self.repo is None:
             self.table.setRowCount(0)
             return
         self._fill(self.repo.list_all())
+
+    def showEvent(self, event) -> None:
+        """主窗口启动时就构造了本页面，切换过来时再刷新一次住户下拉框。"""
+        super().showEvent(event)
+        self._refresh_residents()
+
+    def _refresh_residents(self) -> None:
+        """重新加载住户下拉框（住户页面可能新增了住户），尽量保留原来的选择。"""
+        if self.resident_repo is None:
+            return
+        previous = self.resident_filter.currentData()
+        self.resident_filter.clear()
+        for resident in self.resident_repo.list_all():
+            self.resident_filter.addItem(
+                f"{resident.name}（{resident.building} {resident.room}）", resident.id)
+        index = self.resident_filter.findData(previous)
+        if index >= 0:
+            self.resident_filter.setCurrentIndex(index)
+
+    def search_by_resident(self) -> None:
+        """只显示下拉框所选住户名下的车辆。"""
+        if self.repo is None or self.resident_repo is None:
+            return
+        self._refresh_residents()
+        resident_id = self.resident_filter.currentData()
+        if resident_id is None:
+            QMessageBox.information(self, "提示", "还没有住户，请先在住户管理中登记")
+            return
+        self._fill(self.repo.list_by_resident(resident_id))
 
     def search(self) -> None:
         if self.repo is None:
