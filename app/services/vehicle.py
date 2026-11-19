@@ -6,7 +6,7 @@
 import sqlite3
 
 from app.models.entities import (
-    VEHICLE_MONTHLY, VEHICLE_TEMP, VEHICLE_TYPES, VEHICLE_VISITOR, Vehicle,
+    VEHICLE_MONTHLY, VEHICLE_TYPES, VEHICLE_VISITOR, Vehicle,
 )
 from app.services.validators import is_valid_plate
 
