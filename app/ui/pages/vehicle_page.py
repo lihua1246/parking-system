@@ -161,9 +161,15 @@ class VehiclePage(QWidget):
         self._sync_expire_enabled()
 
     def _vehicle_from_form(self) -> Vehicle:
-        """把表单转成 Vehicle；住户 ID 留空表示 None。"""
+        """把表单转成 Vehicle；住户 ID 留空表示 None，填了非数字抛 ValueError。"""
         resident_text = self.resident_edit.text().strip()
-        resident_id = int(resident_text) if resident_text.isdigit() else None
+        if not resident_text:
+            resident_id = None
+        elif resident_text.isascii() and resident_text.isdigit():
+            resident_id = int(resident_text)
+        else:
+            # 以前非数字会被静默当成空，月租车随后提示“必须绑定住户”，容易误导
+            raise ValueError("住户 ID 须为数字")
         expire = None
         if self._current_type() == VEHICLE_MONTHLY:
             qdate = self.expire_edit.date()
