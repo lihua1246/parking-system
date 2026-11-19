@@ -103,3 +103,20 @@ def test_req004_delete_removes_vehicle(conn):
         repo.delete(vehicle_id)
         assert repo.get(vehicle_id) is None
         assert repo.list_all() == []
+
+
+def test_req004_search_by_plate_fragment(conn):
+    """任务卡 B-2：搜"A123"能找到 豫A12345。"""
+    repo = VehicleRepo(conn)
+    repo.add(_vehicle("豫A12345"))
+    repo.add(_vehicle("豫A54321", VEHICLE_VISITOR, resident_id=None,
+                      monthly_expire=None))
+    assert [v.plate for v in repo.search("A123")] == ["豫A12345"]
+
+
+def test_req004_list_by_resident_only_that_resident(conn):
+    """任务卡 B-2：按住户查询只返回该住户名下的车。"""
+    repo = VehicleRepo(conn)
+    repo.add(_vehicle("豫A12345"))
+    assert [v.plate for v in repo.list_by_resident(1)] == ["豫A12345"]
+    assert repo.list_by_resident(99) == []
