@@ -136,6 +136,10 @@ class VehiclePage(QWidget):
                 self.table.setItem(row, col, QTableWidgetItem(str(value)))
 
     def _on_select(self) -> None:
+        # clearSelection() 也会触发 itemSelectionChanged，但 currentRow() 不会被清掉，
+        # 没有选中行时直接返回，否则“清空表单”会把刚清的内容回填回去。
+        if not self.table.selectedItems():
+            return
         row = self.table.currentRow()
         if row < 0:
             return
