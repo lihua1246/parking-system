@@ -46,6 +46,39 @@ def test_req004_duplicate_plate_rejected(env):
     assert len(repo.list_all()) == 1
 
 
+def test_req004_unknown_resident_rejected_on_add(env):
+    """住户 ID 不存在时提示住户不存在，而不是误报车牌重复。"""
+    conn, repo, service = env
+    with pytest.raises(ValueError) as excinfo:
+        service.add(_monthly(resident_id=999))
+    assert str(excinfo.value) == "住户不存在，请检查住户 ID"
+    assert repo.list_all() == []
+
+
+def test_req004_unknown_resident_rejected_on_update(env):
+    """修改时把住户改成不存在的 ID，同样提示住户不存在，原记录不变。"""
+    conn, repo, service = env
+    vehicle_id = service.add(_monthly())
+    vehicle = repo.get(vehicle_id)
+    vehicle.resident_id = 999
+    with pytest.raises(ValueError) as excinfo:
+        service.update(vehicle)
+    assert str(excinfo.value) == "住户不存在，请检查住户 ID"
+    assert repo.get(vehicle_id).resident_id == 1
+
+
+def test_req004_duplicate_plate_rejected_on_update(env):
+    """修改时把车牌改成别人的，仍提示该车牌已登记。"""
+    conn, repo, service = env
+    service.add(_monthly(plate="豫A12345"))
+    other_id = service.add(_monthly(plate="豫B12345"))
+    other = repo.get(other_id)
+    other.plate = "豫A12345"
+    with pytest.raises(ValueError) as excinfo:
+        service.update(other)
+    assert str(excinfo.value) == "该车牌已登记"
+
+
 def test_req004_monthly_requires_resident(env):
     """验收 2（缺项一）：月租车必须绑定住户。"""
     conn, repo, service = env

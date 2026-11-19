@@ -20,17 +20,16 @@ class VehicleService:
         self._check(obj)
         try:
             return self.vehicle_repo.add(obj)
-        except sqlite3.IntegrityError:
-            # vehicles.plate 有 UNIQUE 约束，重复登记时数据库拒绝
-            raise ValueError("该车牌已登记") from None
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(self._save_error(exc)) from None
 
     def update(self, obj: Vehicle) -> None:
-        """修改车辆。规则不满足或车牌与他人重复时抛 ValueError。"""
+        """修改车辆。规则不满足、车牌与他人重复或住户不存在时抛 ValueError。"""
         self._check(obj)
         try:
             self.vehicle_repo.update(obj)
-        except sqlite3.IntegrityError:
-            raise ValueError("该车牌已登记") from None
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(self._save_error(exc)) from None
 
     def delete(self, vehicle_id: int) -> None:
         """删除车辆。车辆仍被固定车位引用时抛 ValueError。"""
@@ -39,6 +38,17 @@ class VehicleService:
         except sqlite3.IntegrityError:
             # spaces.fixed_vehicle_id 外键引用 vehicles(id)
             raise ValueError("请先释放该车辆的固定车位") from None
+
+    @staticmethod
+    def _save_error(exc: sqlite3.IntegrityError) -> str:
+        """把新增/修改时的约束错误翻译成提示语。
+
+        vehicles 表上有两类约束会被触发：plate 的 UNIQUE（车牌重复），
+        resident_id 引用 residents(id) 的外键（住户不存在）。
+        """
+        if "FOREIGN KEY" in str(exc):
+            return "住户不存在，请检查住户 ID"
+        return "该车牌已登记"
 
     @staticmethod
     def _check(obj: Vehicle) -> None:
