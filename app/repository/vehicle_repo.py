@@ -61,6 +61,25 @@ class VehicleRepo:
         ).fetchall()
         return [self._to_vehicle(r) for r in rows]
 
+    def search(self, keyword: str) -> list[Vehicle]:
+        """按车牌模糊查询（任务卡 B-2）。"""
+        like = f"%{keyword}%"
+        rows = self.conn.execute(
+            "SELECT id, plate, vehicle_type, resident_id, monthly_expire, note "
+            "FROM vehicles WHERE plate LIKE ? ORDER BY id",
+            (like,),
+        ).fetchall()
+        return [self._to_vehicle(r) for r in rows]
+
+    def list_by_resident(self, resident_id: int) -> list[Vehicle]:
+        """按住户查询他名下的车辆（任务卡 B-2）。"""
+        rows = self.conn.execute(
+            "SELECT id, plate, vehicle_type, resident_id, monthly_expire, note "
+            "FROM vehicles WHERE resident_id = ? ORDER BY id",
+            (resident_id,),
+        ).fetchall()
+        return [self._to_vehicle(r) for r in rows]
+
     def get_by_plate(self, plate: str) -> Vehicle | None:
         """GateService 入场时用来确定车辆类型。找不到返回 None。"""
         row = self.conn.execute(
