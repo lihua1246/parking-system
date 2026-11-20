@@ -129,8 +129,11 @@ class StatsPage(QWidget):
         day_labels = [d.day for d in days]
 
         flow_axis = self.figure.add_subplot(1, 2, 1)
-        flow_axis.plot(day_labels, [flow[d]["in"] for d in days], marker="o", label="入场")
-        flow_axis.plot(day_labels, [flow[d]["out"] for d in days], marker="s", label="出场")
+        # 出场用虚线，避免两条线数值相近时把入场那条完全盖住。
+        flow_axis.plot(day_labels, [flow[d]["in"] for d in days],
+                       marker="o", label="入场")
+        flow_axis.plot(day_labels, [flow[d]["out"] for d in days],
+                       marker="s", linestyle="--", label="出场")
         flow_axis.set_title(f"{year}-{month:02d} 每日车流量（辆）")
         flow_axis.set_xlabel("日")
         flow_axis.set_ylabel("车辆数")
