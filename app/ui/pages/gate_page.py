@@ -30,7 +30,7 @@ class GatePage(QWidget):
         title = QLabel(self.TITLE)
         title.setStyleSheet("font-size: 24px; font-weight: bold;")
         layout.addWidget(title)
-        layout.addWidget(QLabel(f"操作员：{operator or '未接入'}　｜　D-1：出场费用暂为 0 元"))
+        layout.addWidget(QLabel(f"操作员：{operator or '未接入'}　｜　出场时按当前收费规则计费"))
 
         controls = QHBoxLayout()
         self.plate_input = QLineEdit()

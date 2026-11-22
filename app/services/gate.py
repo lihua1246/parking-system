@@ -1,8 +1,9 @@
-"""入场、出场流程（负责人 D，REQ-008 至 REQ-010）。"""
+"""入场、出场流程（负责人 D，REQ-008 至 REQ-010；出场计费由 A 接入，任务卡 A-5）。"""
 from dataclasses import replace
 from datetime import datetime
 
-from app.models.entities import ParkingRecord, VEHICLE_TEMP
+from app.models.entities import ParkingRecord, VEHICLE_MONTHLY, VEHICLE_TEMP
+from app.services.billing import make_policy
 from app.services.validators import is_valid_plate
 
 
@@ -37,10 +38,23 @@ class GateService:
             raise ValueError("未找到在场记录")
         if now < record.enter_time:
             raise ValueError("出场时间不能早于入场时间")
-        # 保留入场快照；D-1 暂不使用收费规则，费用固定为整数 0。
-        exited = replace(record, exit_time=now, fee=0)
+        exited = replace(record, exit_time=now, fee=self._calc_fee(record, now))
         self.record_repo.update(exited)
         return exited
+
+    def _calc_fee(self, record: ParkingRecord, now: datetime) -> int:
+        """按入场时的车辆类型快照计费（ADR-004）。
+
+        收费规则每次出场时从数据库读取，管理员改完规则（REQ-015）后立即生效，不缓存。
+        月租车的到期日取车辆当前资料，出场前续费也算数；车辆资料已删除时按临时车计费。
+        """
+        rules = {rule.vehicle_type: rule for rule in self.fee_rule_repo.list_all()}
+        expire = None
+        if record.vehicle_type == VEHICLE_MONTHLY:
+            vehicle = self.vehicle_repo.get_by_plate(record.plate)
+            if vehicle is not None and vehicle.vehicle_type == VEHICLE_MONTHLY:
+                expire = vehicle.monthly_expire
+        return make_policy(record.vehicle_type, expire, rules).calc(record.enter_time, now)
 
     def list_present(self) -> list[ParkingRecord]:
         return self.record_repo.list_present()
