@@ -47,7 +47,9 @@ from app.models.entities import (
     VEHICLE_TEMP,
     VEHICLE_VISITOR,
 )
-from app.services.stats import daily_flow, income_by_day, monthly_flow, utilization
+from app.services.stats import (
+    daily_flow, income_by_day, month_summary, monthly_flow, utilization,
+)
 
 YEAR, MONTH = 2026, 11
 DAY1 = date(2026, 11, 16)
@@ -200,6 +202,27 @@ def test_req017_empty_records_give_zero_income():
 
 
 # ---------------- REQ-018 车位利用率 ----------------
+
+
+# ---------- E-2：month_summary（审阅意见补充，A-5） ----------
+
+def test_e2_month_summary_matches_hand_calc():
+    # E-2 验收 1：与文档表格中手算的合计一致
+    assert month_summary(_records(), YEAR, MONTH) == {
+        "in": HAND_TOTAL_IN, "out": HAND_TOTAL_OUT, "income": HAND_TOTAL_INCOME,
+    }
+
+
+def test_e2_month_summary_income_equals_sum_of_income_by_day():
+    # E-2 验收 2
+    records = _records()
+    assert month_summary(records, YEAR, MONTH)["income"] == sum(
+        income_by_day(records, YEAR, MONTH).values())
+
+
+def test_e2_month_summary_empty_is_all_zero():
+    # E-2 验收 3
+    assert month_summary([], YEAR, MONTH) == {"in": 0, "out": 0, "income": 0}
 
 
 def test_req018_utilization_is_four_of_ten():

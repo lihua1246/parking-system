@@ -61,6 +61,19 @@ def income_by_day(records: list[ParkingRecord], year: int, month: int) -> dict[d
     return income
 
 
+def month_summary(records: list[ParkingRecord], year: int, month: int) -> dict[str, int]:
+    """该月合计 {"in": 入场数, "out": 出场数, "income": 收入}（任务卡 E-2）。
+
+    由 monthly_flow 和 income_by_day 汇总，与图表同源；界面直接显示，不自己求和。
+    """
+    flow = monthly_flow(records, year, month)
+    return {
+        "in": sum(day["in"] for day in flow.values()),
+        "out": sum(day["out"] for day in flow.values()),
+        "income": sum(income_by_day(records, year, month).values()),
+    }
+
+
 def utilization(spaces: list[ParkingSpace]) -> float:
     """0 到 1；无车位时为 0.0。
 
