@@ -132,6 +132,19 @@ def test_req004_blank_resident_id_is_allowed_for_temp(qapp, repo):
     assert [v.resident_id for v in repo.list_all()] == [None]
 
 
+def test_req004_failed_add_keeps_selected_row(qapp, repo, monkeypatch):
+    """审阅意见：选中一行后点"新增"失败，选中状态不应丢失，"保存修改"仍可用。"""
+    vehicle_id = repo.add(_temp_vehicle("豫A12345"))
+    page = VehiclePage(repo)
+    page.table.selectRow(0)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: None)
+
+    page.add()                          # 车牌与选中行相同，新增必然因重复而失败
+
+    assert page.current_id == vehicle_id
+    assert len(repo.list_all()) == 1
+
+
 def test_req004_remove_does_not_leave_stale_id(qapp, repo, monkeypatch):
     repo.add(_temp_vehicle("豫A12345"))
     page = VehiclePage(repo)

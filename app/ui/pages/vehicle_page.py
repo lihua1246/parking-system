@@ -242,9 +242,10 @@ class VehiclePage(QWidget):
     def add(self) -> None:
         if not self._ready():
             return
-        self.current_id = None
         try:
-            new_id = self.service.add(self._vehicle_from_form())
+            vehicle = self._vehicle_from_form()
+            vehicle.id = None           # 新增不沿用选中行的 id；新增失败时保留选中状态，"保存修改"仍可用
+            new_id = self.service.add(vehicle)
         except ValueError as exc:
             QMessageBox.warning(self, "无法新增", str(exc))
             return
