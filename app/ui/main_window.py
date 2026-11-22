@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from app.models.entities import User
 from app.repository.fee_rule_repo import FeeRuleRepo
 from app.repository.record_repo import RecordRepo
+from app.repository.reservation_repo import ReservationRepo
 from app.repository.resident_repo import ResidentRepo
 from app.repository.space_repo import SpaceRepo
 from app.repository.user_repo import UserRepo
@@ -92,7 +93,7 @@ class MainWindow(QMainWindow):
             (FEATURE_RESIDENT, lambda: ResidentPage(ResidentRepo(self.conn))),
             (FEATURE_VEHICLE, lambda: VehiclePage(VehicleRepo(self.conn), ResidentRepo(self.conn))),
             (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn), VehicleRepo(self.conn))),
-            (FEATURE_RESERVATION, lambda: ReservationPage()),
+            (FEATURE_RESERVATION, lambda: ReservationPage(ReservationRepo(self.conn), SpaceRepo(self.conn))),
             (FEATURE_FEE_RULE, lambda: FeeRulePage(FeeRuleRepo(self.conn))),
             (FEATURE_ALERT, lambda: AlertPage()),
             (FEATURE_STATS, lambda: StatsPage(RecordRepo(self.conn), SpaceRepo(self.conn))),
