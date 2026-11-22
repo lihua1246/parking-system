@@ -2,12 +2,18 @@
 
 重点回归：选中一行后“清空表单”/删除，表单不能被 _on_select 回填。
 """
+from datetime import date
+
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from app.models.entities import VEHICLE_TEMP, Resident, Vehicle
+from app.models.entities import (
+    SPACE_OCCUPIED, VEHICLE_MONTHLY, VEHICLE_TEMP, ParkingSpace, Resident, Vehicle,
+)
 from app.repository.db import get_connection, init_db
+from app.repository.record_repo import RecordRepo
 from app.repository.resident_repo import ResidentRepo
+from app.repository.space_repo import SpaceRepo
 from app.repository.vehicle_repo import VehicleRepo
 from app.ui.pages.vehicle_page import VehiclePage
 
@@ -156,3 +162,21 @@ def test_req004_remove_does_not_leave_stale_id(qapp, repo, monkeypatch):
     assert page.table.rowCount() == 0
     assert page.current_id is None
     assert page.plate_edit.text() == ""
+
+
+def test_req007_page_rejects_type_change_of_fixed_space_vehicle(qapp, repo, resident_repo, monkeypatch):
+    """页面把车位、记录仓库交给服务层：有固定车位的月租车在页面上改成临时车会被拒绝。"""
+    resident_id = resident_repo.add(Resident(None, "张三", "3号楼", "2-501", "13800000000"))
+    vehicle_id = repo.add(Vehicle(None, "豫A12345", VEHICLE_MONTHLY, resident_id, date(2026, 12, 31)))
+    space_repo = SpaceRepo(repo.conn)
+    space_repo.add(ParkingSpace(None, "A-001", "A区", SPACE_OCCUPIED, vehicle_id))
+    page = VehiclePage(repo, resident_repo, space_repo, RecordRepo(repo.conn))
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[2]))
+    page.table.selectRow(0)
+    page.type_combo.setCurrentIndex(page.type_combo.findData(VEHICLE_TEMP))
+
+    page.save()
+
+    assert warnings == ["该车辆有固定车位，请先释放车位再改为非月租车"]
+    assert repo.get(vehicle_id).vehicle_type == VEHICLE_MONTHLY

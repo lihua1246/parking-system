@@ -91,7 +91,11 @@ class MainWindow(QMainWindow):
             (FEATURE_GATE, lambda: GatePage(service=gate_service, operator=self.user.username)),
             (FEATURE_RECORD, lambda: RecordPage(RecordRepo(self.conn))),
             (FEATURE_RESIDENT, lambda: ResidentPage(ResidentRepo(self.conn))),
-            (FEATURE_VEHICLE, lambda: VehiclePage(VehicleRepo(self.conn), ResidentRepo(self.conn))),
+            # 车辆页额外传入的 repo 交给服务层做修改前检查（第二轮审查补充）
+            (FEATURE_VEHICLE, lambda: VehiclePage(
+                VehicleRepo(self.conn), ResidentRepo(self.conn),
+                SpaceRepo(self.conn), RecordRepo(self.conn),
+            )),
             (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn), VehicleRepo(self.conn))),
             (FEATURE_RESERVATION, lambda: ReservationPage(ReservationRepo(self.conn), SpaceRepo(self.conn))),
             (FEATURE_FEE_RULE, lambda: FeeRulePage(FeeRuleRepo(self.conn))),
