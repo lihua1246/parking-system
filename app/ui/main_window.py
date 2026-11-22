@@ -88,7 +88,7 @@ class MainWindow(QMainWindow):
         )
         registry = [
             (FEATURE_GATE, lambda: GatePage(service=gate_service, operator=self.user.username)),
-            (FEATURE_RECORD, lambda: RecordPage()),
+            (FEATURE_RECORD, lambda: RecordPage(RecordRepo(self.conn))),
             (FEATURE_RESIDENT, lambda: ResidentPage(ResidentRepo(self.conn))),
             (FEATURE_VEHICLE, lambda: VehiclePage(VehicleRepo(self.conn), ResidentRepo(self.conn))),
             (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn))),
