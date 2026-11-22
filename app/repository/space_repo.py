@@ -64,6 +64,14 @@ class SpaceRepo:
         rows = self.conn.execute(sql, params).fetchall()
         return [self._to_space(row) for row in rows]
 
+    def get_by_fixed_vehicle(self, vehicle_id: int) -> ParkingSpace | None:
+        """查车辆已绑定的固定车位（REQ-007）；没有返回 None。"""
+        row = self.conn.execute(
+            "SELECT id, code, zone, status, fixed_vehicle_id FROM spaces WHERE fixed_vehicle_id = ?",
+            (vehicle_id,),
+        ).fetchone()
+        return self._to_space(row) if row is not None else None
+
     @staticmethod
     def _to_space(row: sqlite3.Row) -> ParkingSpace:
         return ParkingSpace(
