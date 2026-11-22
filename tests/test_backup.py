@@ -137,3 +137,43 @@ def test_req023_other_sqlite_db_rejected(conn, tmp_path):
         restore_database(conn, other, tmp_path / "out", T3)
     assert usernames(conn) == ["admin"]
     assert list_backups(tmp_path / "out") == []
+
+
+# ---------- 第二轮审查补充：结构与本系统不完全一致的文件拒绝还原 ----------
+
+def _crafted_backup(path, extra_sql):
+    """按本系统建表后再多执行一条语句，模拟被人改过的备份文件。"""
+    c = get_connection(str(path))
+    init_db(c)
+    c.execute(extra_sql)
+    c.commit()
+    c.close()
+
+
+@pytest.mark.parametrize("extra_sql", [
+    # 出场写入费用后立刻改成 0：界面显示应收金额，库里存的是 0（审查时复现过）
+    "CREATE TRIGGER zero_fee AFTER UPDATE OF fee ON records "
+    "BEGIN UPDATE records SET fee = 0 WHERE id = NEW.id; END",
+    # 名字以 sqlite 开头，想混进 SQLite 内部对象里躲过检查
+    "CREATE TRIGGER sqlitex AFTER INSERT ON users BEGIN DELETE FROM users; END",
+    "CREATE VIEW all_users AS SELECT * FROM users",
+    "CREATE TABLE extra (id INTEGER)",
+    "ALTER TABLE records ADD COLUMN memo TEXT",              # 已有表的结构被改动
+])
+def test_req023_backup_with_different_schema_rejected(conn, tmp_path, extra_sql):
+    crafted = tmp_path / "crafted.db"
+    _crafted_backup(crafted, extra_sql)
+    with pytest.raises(ValueError, match="不是本系统的备份文件"):
+        restore_database(conn, crafted, tmp_path / "out", T3)
+    assert usernames(conn) == ["admin"]
+    assert list_backups(tmp_path / "out") == []          # 校验失败时不做安全备份
+
+
+def test_req023_corrupted_backup_rejected(conn, tmp_path):
+    path = backup_database(conn, tmp_path, T1)
+    data = bytearray(path.read_bytes())
+    data[4096:8192] = b"\xff" * 4096        # 第 2 页（users 表）整页写坏，第 1 页的结构信息不动
+    path.write_bytes(bytes(data))
+    with pytest.raises(ValueError, match="不是本系统的备份文件"):
+        restore_database(conn, path, tmp_path / "out", T3)
+    assert usernames(conn) == ["admin"]

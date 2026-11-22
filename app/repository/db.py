@@ -107,8 +107,24 @@ def init_db(conn: sqlite3.Connection) -> None:
 
 
 def list_tables(conn: sqlite3.Connection) -> set[str]:
-    """返回数据库中所有表名（不含 SQLite 内部表）。备份还原时用来确认文件是本系统的数据库。"""
+    """返回数据库中所有表名（不含 SQLite 内部表）。"""
     rows = conn.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
     ).fetchall()
     return {row[0] for row in rows}
+
+
+def schema_objects(conn: sqlite3.Connection) -> set[tuple[str, str, str, str]]:
+    """返回 sqlite_master 里的全部对象：(类型, 名称, 所属表, 建表语句)。备份还原时用来校验文件。
+
+    表、索引、触发器、视图都算，SQLite 自动建的内部对象也算，不按名称过滤：
+    按名称过滤（如 NOT LIKE 'sqlite_%'）会被 "sqlitex" 这类名字绕过。
+    建表语句里连续的空白合并成一个空格，排版不同而内容相同的语句视为一致。
+    """
+    rows = conn.execute("SELECT type, name, tbl_name, sql FROM sqlite_master").fetchall()
+    return {(row[0], row[1], row[2], " ".join((row[3] or "").split())) for row in rows}
+
+
+def integrity_ok(conn: sqlite3.Connection) -> bool:
+    """SQLite 自检（PRAGMA integrity_check）结果为 ok 时返回 True，文件损坏时返回 False。"""
+    return conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
