@@ -15,7 +15,8 @@ from app.repository.reservation_repo import ReservationRepo
 from app.repository.space_repo import SpaceRepo
 from app.services.reservation import (
     CONFLICT_MSG, INVALID_PERIOD_MSG, INVALID_PLATE_MSG, RESERVATION_NOT_FOUND_MSG,
-    SPACE_NOT_FOUND_MSG, SPACE_OCCUPIED_MSG, add_reservation, cancel_reservation, has_conflict,
+    SPACE_FIXED_MSG, SPACE_NOT_FOUND_MSG, SPACE_OCCUPIED_MSG, add_reservation, cancel_reservation,
+    has_conflict,
 )
 
 
@@ -92,6 +93,21 @@ def test_req022_occupied_space_rejected(ctx):
     reservations, spaces, ids = ctx
     with pytest.raises(ValueError, match=SPACE_OCCUPIED_MSG):
         add_reservation(reservations, spaces, ids[SPACE_OCCUPIED], "豫A12345", t(8), t(10))
+    assert reservations.list_all() == []
+
+
+def test_req022_bound_fixed_space_rejected_even_if_marked_free(ctx):
+    """固定车位被手动改成"空闲"后，仍不能给别人预约（ADR-006、ADR-011）。"""
+    reservations, spaces, _ = ctx
+    conn = spaces.conn
+    conn.execute("INSERT INTO residents (name, building, room, phone) VALUES ('张三','3','101','13800000000')")
+    vehicle_id = conn.execute(
+        "INSERT INTO vehicles (plate, vehicle_type, resident_id, monthly_expire) "
+        "VALUES ('豫A12345', 'monthly', 1, '2026-12-31')").lastrowid
+    conn.commit()
+    space_id = spaces.add(ParkingSpace(None, "A-9", "A区", SPACE_FREE, vehicle_id))
+    with pytest.raises(ValueError, match=SPACE_FIXED_MSG):
+        add_reservation(reservations, spaces, space_id, "豫B22222", t(8), t(10))
     assert reservations.list_all() == []
 
 

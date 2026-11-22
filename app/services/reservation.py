@@ -13,6 +13,7 @@ from app.services.validators import is_valid_plate
 
 SPACE_NOT_FOUND_MSG = "该车位已不存在，请刷新"
 SPACE_OCCUPIED_MSG = "该车位已被占用，不能预约"
+SPACE_FIXED_MSG = "该车位是固定车位，不能预约"
 INVALID_PLATE_MSG = "车牌格式不正确"
 INVALID_PERIOD_MSG = "结束时间必须晚于开始时间"
 CONFLICT_MSG = "该时间段与已有预约重叠"
@@ -27,6 +28,9 @@ def add_reservation(reservation_repo, space_repo, space_id: int, plate: str,
         raise ValueError(SPACE_NOT_FOUND_MSG)
     if space.status == SPACE_OCCUPIED:
         raise ValueError(SPACE_OCCUPIED_MSG)
+    # 已分配的固定车位即使被手动改成"空闲"，也不能给别人预约（ADR-006、ADR-011）
+    if space.fixed_vehicle_id is not None:
+        raise ValueError(SPACE_FIXED_MSG)
     plate = plate.strip()
     if not is_valid_plate(plate):
         raise ValueError(INVALID_PLATE_MSG)

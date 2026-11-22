@@ -15,6 +15,7 @@ SPACE_ALREADY_BOUND_MSG = "该车位已绑定其他车辆"
 VEHICLE_ALREADY_FIXED_MSG = "该车辆已有固定车位"
 SPACE_NOT_FREE_MSG = "只能分配空闲车位"
 SPACE_NOT_BOUND_MSG = "该车位没有绑定车辆"
+DELETE_FIXED_MSG = "该车位已绑定固定车辆，请先释放"
 
 
 class SpaceService:
@@ -23,12 +24,15 @@ class SpaceService:
         self.vehicle_repo = vehicle_repo      # 只在分配固定车位时需要
 
     def delete(self, space_id: int) -> None:
-        """删除车位。车位不存在、正被占用、或仍被预约引用时抛出 ValueError。"""
+        """删除车位。车位不存在、正被占用、绑定了固定车辆、或仍被预约引用时抛出 ValueError。"""
         space = self.space_repo.get(space_id)
         if space is None:
             raise ValueError(SPACE_NOT_FOUND_MSG)
         if space.status == SPACE_OCCUPIED:
             raise ValueError("车位正在使用，不能删除")
+        # 状态可在车位页手动修改（ADR-010），不能只靠 occupied 判断是否已分配，否则绑定会被悄悄删掉
+        if space.fixed_vehicle_id is not None:
+            raise ValueError(DELETE_FIXED_MSG)
         try:
             self.space_repo.delete(space_id)
         except sqlite3.IntegrityError:
