@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
             (FEATURE_GATE, lambda: GatePage(service=gate_service, operator=self.user.username)),
             (FEATURE_RECORD, lambda: RecordPage()),
             (FEATURE_RESIDENT, lambda: ResidentPage(ResidentRepo(self.conn))),
-            (FEATURE_VEHICLE, lambda: VehiclePage()),
+            (FEATURE_VEHICLE, lambda: VehiclePage(VehicleRepo(self.conn), ResidentRepo(self.conn))),
             (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn))),
             (FEATURE_RESERVATION, lambda: ReservationPage()),
             (FEATURE_FEE_RULE, lambda: FeeRulePage(FeeRuleRepo(self.conn))),
