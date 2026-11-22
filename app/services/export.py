@@ -1,6 +1,6 @@
 """REQ-019：出入记录与收入汇总导出为 Excel（负责人 E，REQ-019）。
 
-接口签名尚未写入 docs/03 第六节；本文件按下列签名实现，待组长补进文档：
+接口签名见 docs/03 第六节 export.py：
 
     export_records(records: list[ParkingRecord], path: str | Path) -> int
     export_income(income: dict[date, int], path: str | Path) -> int
