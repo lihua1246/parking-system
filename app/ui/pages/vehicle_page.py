@@ -4,7 +4,8 @@
 因为车牌格式、月租车必填项、车牌唯一这些规则都在服务层。
 按住户查询用 ResidentRepo.list_all 填下拉框，再调 VehicleRepo.list_by_resident。
 
-构造：VehiclePage(vehicle_repo, resident_repo)
+构造：VehiclePage(vehicle_repo, resident_repo, space_repo, record_repo)
+space_repo、record_repo 交给 VehicleService，修改车辆时检查固定车位和在场状态。
 """
 from datetime import date
 
@@ -29,11 +30,13 @@ class VehiclePage(QWidget):
     TITLE = "车辆管理"
 
     def __init__(self, vehicle_repo: VehicleRepo | None = None,
-                 resident_repo: ResidentRepo | None = None, parent=None):
+                 resident_repo: ResidentRepo | None = None,
+                 space_repo=None, record_repo=None, parent=None):
         super().__init__(parent)
         self.repo = vehicle_repo
         self.resident_repo = resident_repo
-        self.service = VehicleService(vehicle_repo) if vehicle_repo is not None else None
+        self.service = (VehicleService(vehicle_repo, space_repo, record_repo)
+                        if vehicle_repo is not None else None)
         self.current_id: int | None = None
         self._build_ui()
         self.reload()

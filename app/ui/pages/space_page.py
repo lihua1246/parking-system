@@ -1,10 +1,12 @@
 """车位管理页面（REQ-006 负责人 C；REQ-007 固定车位由 A 接入，任务卡 A-5）。
 
 查询和保存调用 SpaceRepo，删除、分配、释放走 SpaceService；不写 SQL、不写业务规则（见 docs/03-架构与接口.md）。
-页面构造为 SpacePage(space_repo, vehicle_repo)，由 main_window.py 构造并传入；
-vehicle_repo 用来在"固定车辆"列显示车牌，以及分配时按车牌查车辆。
+页面构造为 SpacePage(space_repo, vehicle_repo, reservation_repo)，由 main_window.py 构造并传入；
+vehicle_repo 用来在"固定车辆"列显示车牌，以及分配时按车牌查车辆；
+reservation_repo 交给 SpaceService，分配前检查该车位有没有未结束的预约。
 """
 import sqlite3
+from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -27,11 +29,13 @@ ALL = "全部"
 class SpacePage(QWidget):
     TITLE = "车位管理"
 
-    def __init__(self, space_repo: SpaceRepo | None = None, vehicle_repo=None, parent=None):
+    def __init__(self, space_repo: SpaceRepo | None = None, vehicle_repo=None,
+                 reservation_repo=None, parent=None):
         super().__init__(parent)
         self.repo = space_repo
         self.vehicle_repo = vehicle_repo
-        self.service = SpaceService(space_repo, vehicle_repo) if space_repo is not None else None
+        self.service = (SpaceService(space_repo, vehicle_repo, reservation_repo)
+                        if space_repo is not None else None)
         self._current_id: int | None = None
         self._build_ui()
         if self.repo is None:
@@ -286,7 +290,8 @@ class SpacePage(QWidget):
         if not ok or not plate.strip():
             return
         try:
-            self.service.assign_fixed(self._current_id, plate)
+            # 当前时间在界面取得后传给服务层，用来判断哪些预约还没结束
+            self.service.assign_fixed(self._current_id, plate, datetime.now())
         except ValueError as exc:
             QMessageBox.warning(self, "提示", str(exc))
             return

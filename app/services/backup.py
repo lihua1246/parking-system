@@ -3,6 +3,7 @@
 用标准库 sqlite3 的 Connection.backup 在两个连接之间复制整个数据库（ADR-008）：
 程序运行时连接一直开着，直接复制文件可能拿到写了一半的数据，还原时文件也可能被占用；
 backup 接口由 SQLite 保证复制的是一致的完整数据，还原时直接写进当前连接，不用关闭重开。
+还原前校验：文件结构必须与本系统建表结果完全一致（不多不少），并且通过 SQLite 自检。
 
 时间由调用方传入，本模块不调用 datetime.now()。
 """
@@ -10,12 +11,11 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from app.repository.db import PROJECT_ROOT, list_tables
+from app.repository.db import PROJECT_ROOT, get_connection, init_db, integrity_ok, schema_objects
 
 DEFAULT_BACKUP_DIR = PROJECT_ROOT / "data" / "backups"
 BACKUP_PREFIX = "parking_"
 BACKUP_SUFFIX = ".db"
-REQUIRED_TABLES = {"users", "residents", "vehicles", "spaces", "records", "fee_rules", "reservations"}
 
 BACKUP_NOT_FOUND_MSG = "备份文件不存在"
 NOT_A_BACKUP_MSG = "不是本系统的备份文件"
@@ -53,19 +53,32 @@ def list_backups(backup_dir: Path) -> list[Path]:
     return sorted(files, key=lambda p: p.name, reverse=True)   # 文件名含时间，按名字倒序即按时间倒序
 
 
+def _expected_schema() -> set[tuple[str, str, str, str]]:
+    """按本系统的建表语句新建一个内存库，取出它的结构作为比对标准。"""
+    fresh = get_connection(":memory:")
+    try:
+        init_db(fresh)
+        return schema_objects(fresh)
+    finally:
+        fresh.close()
+
+
 def _open_backup(backup_path: Path) -> sqlite3.Connection:
-    """只读打开备份文件并确认包含本系统的全部表；不合格时抛 ValueError。"""
+    """只读打开备份文件，确认结构与本系统建表结果完全一致且文件完好；不合格时抛 ValueError。
+
+    只检查表名不够：还原会把整个文件原样复制进当前数据库，伪造的文件可以带着触发器进来，
+    例如出场写入费用后立刻改成 0。所以多一个对象、少一个对象、建表语句不同都拒绝。
+    """
     backup_path = Path(backup_path)
     if not backup_path.is_file():
         raise ValueError(BACKUP_NOT_FOUND_MSG)
     # 只读打开，校验过程不会改动备份文件，也不会在路径错误时新建空库
     src = sqlite3.connect(f"{backup_path.resolve().as_uri()}?mode=ro", uri=True)
     try:
-        tables = list_tables(src)
-    except sqlite3.DatabaseError:           # 文件不是 SQLite 数据库
-        src.close()
-        raise ValueError(NOT_A_BACKUP_MSG) from None
-    if not REQUIRED_TABLES <= tables:
+        valid = schema_objects(src) == _expected_schema() and integrity_ok(src)
+    except sqlite3.DatabaseError:           # 文件不是 SQLite 数据库，或已损坏到无法读取
+        valid = False
+    if not valid:
         src.close()
         raise ValueError(NOT_A_BACKUP_MSG)
     return src

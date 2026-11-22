@@ -12,6 +12,7 @@ from app.models.entities import (
 from app.repository.db import get_connection, init_db
 from app.repository.fee_rule_repo import FeeRuleRepo
 from app.repository.record_repo import RecordRepo
+from app.repository.space_repo import SpaceRepo
 from app.repository.vehicle_repo import VehicleRepo
 from app.services.gate import GateService
 from app.services.vehicle import VehicleService
@@ -19,7 +20,10 @@ from app.services.vehicle import VehicleService
 
 @pytest.fixture
 def env():
-    """内存库 + 一个住户（id=1），返回 (conn, repo, service)。"""
+    """内存库 + 一个住户（id=1），返回 (conn, repo, service)。
+
+    service 按主窗口的接法传入车位、记录仓库，修改车辆时会检查固定车位和在场状态。
+    """
     conn = get_connection(":memory:")
     init_db(conn)
     conn.execute(
@@ -27,7 +31,7 @@ def env():
         ("张三", "3号楼", "2-501", "13800000000"),
     )
     repo = VehicleRepo(conn)
-    yield conn, repo, VehicleService(repo)
+    yield conn, repo, VehicleService(repo, SpaceRepo(conn), RecordRepo(conn))
     conn.close()
 
 
@@ -149,3 +153,76 @@ def test_req004_delete_blocked_by_fixed_space(env):
         service.delete(vehicle_id)
     assert str(excinfo.value) == "请先释放该车辆的固定车位"
     assert repo.get(vehicle_id) is not None
+
+
+# ---------- 第二轮审查补充：修改车辆时的两条规则 ----------
+
+def _bind_fixed_space(conn, vehicle_id):
+    conn.execute(
+        "INSERT INTO spaces (code, zone, status, fixed_vehicle_id) VALUES (?, ?, ?, ?)",
+        ("A-001", "A区", "occupied", vehicle_id),
+    )
+
+
+@pytest.mark.parametrize("new_type, resident_id", [(VEHICLE_TEMP, None), (VEHICLE_VISITOR, 1)])
+def test_req007_vehicle_with_fixed_space_cannot_become_non_monthly(env, new_type, resident_id):
+    """固定车位只给月租车：绑了固定车位的车改成临时车或访客车时拒绝，资料不变。"""
+    conn, repo, service = env
+    vehicle_id = service.add(_monthly())
+    _bind_fixed_space(conn, vehicle_id)
+    vehicle = repo.get(vehicle_id)
+    vehicle.vehicle_type, vehicle.resident_id = new_type, resident_id
+    with pytest.raises(ValueError) as excinfo:
+        service.update(vehicle)
+    assert str(excinfo.value) == "该车辆有固定车位，请先释放车位再改为非月租车"
+    assert repo.get(vehicle_id).vehicle_type == VEHICLE_MONTHLY
+
+
+def test_req007_vehicle_with_fixed_space_can_still_renew(env):
+    """有固定车位的月租车照常续费（改到期日），不受影响。"""
+    conn, repo, service = env
+    vehicle_id = service.add(_monthly())
+    _bind_fixed_space(conn, vehicle_id)
+    vehicle = repo.get(vehicle_id)
+    vehicle.monthly_expire = date(2027, 12, 31)
+    service.update(vehicle)
+    assert repo.get(vehicle_id).monthly_expire == date(2027, 12, 31)
+
+
+def test_req007_vehicle_without_fixed_space_can_change_type(env):
+    """没有固定车位的月租车可以改成临时车，规则只管有固定车位的车。"""
+    conn, repo, service = env
+    vehicle_id = service.add(_monthly())
+    vehicle = repo.get(vehicle_id)
+    vehicle.vehicle_type, vehicle.resident_id = VEHICLE_TEMP, None
+    service.update(vehicle)
+    assert repo.get(vehicle_id).vehicle_type == VEHICLE_TEMP
+
+
+def test_req004_plate_change_rejected_while_parked(env):
+    """车辆在场时改车牌会让在场记录对不上，出场被按临时车收费，所以拒绝。"""
+    conn, repo, service = env
+    vehicle_id = service.add(_monthly())
+    gate = GateService(RecordRepo(conn), repo, FeeRuleRepo(conn))
+    gate.enter("豫A12345", datetime(2026, 11, 20, 8, 0), "admin")
+    vehicle = repo.get(vehicle_id)
+    vehicle.plate = "豫A12346"
+    with pytest.raises(ValueError) as excinfo:
+        service.update(vehicle)
+    assert str(excinfo.value) == "该车辆在场内，出场后才能修改车牌"
+    assert repo.get(vehicle_id).plate == "豫A12345"
+    # 车牌没被改动，出场时仍是有效期内的月租车，免费
+    assert gate.exit("豫A12345", datetime(2026, 11, 20, 13, 0), "admin").fee == 0
+
+
+def test_req004_plate_change_allowed_after_exit(env):
+    """出场以后可以正常改车牌。"""
+    conn, repo, service = env
+    vehicle_id = service.add(_monthly())
+    gate = GateService(RecordRepo(conn), repo, FeeRuleRepo(conn))
+    gate.enter("豫A12345", datetime(2026, 11, 20, 8, 0), "admin")
+    gate.exit("豫A12345", datetime(2026, 11, 20, 13, 0), "admin")
+    vehicle = repo.get(vehicle_id)
+    vehicle.plate = "豫A12346"
+    service.update(vehicle)
+    assert repo.get(vehicle_id).plate == "豫A12346"
