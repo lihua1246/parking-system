@@ -95,7 +95,7 @@ class MainWindow(QMainWindow):
             (FEATURE_RESERVATION, lambda: ReservationPage()),
             (FEATURE_FEE_RULE, lambda: FeeRulePage(FeeRuleRepo(self.conn))),
             (FEATURE_ALERT, lambda: AlertPage()),
-            (FEATURE_STATS, lambda: StatsPage()),
+            (FEATURE_STATS, lambda: StatsPage(RecordRepo(self.conn), SpaceRepo(self.conn))),
             (FEATURE_USER, lambda: UserPage(user_repo, UserService(user_repo), self.user)),
             (FEATURE_BACKUP, lambda: BackupPage(self.conn, DEFAULT_BACKUP_DIR)),
         ]
