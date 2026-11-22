@@ -105,5 +105,6 @@ def test_flow_fixed_space_counts_in_utilization(app):
     _, repos = app
     space_id = repos["space"].add(ParkingSpace(None, "A-001", "A区", SPACE_FREE, None))
     repos["space"].add(ParkingSpace(None, "A-002", "A区", SPACE_FREE, None))
-    SpaceService(repos["space"], repos["vehicle"]).assign_fixed(space_id, "豫A12345")
+    SpaceService(repos["space"], repos["vehicle"]).assign_fixed(
+        space_id, "豫A12345", datetime(2026, 11, 20, 8))
     assert utilization(repos["space"].list_all()) == 0.5       # ADR-006：固定车位计为占用
