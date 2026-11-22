@@ -12,6 +12,7 @@ from datetime import date, datetime
 
 from app.models.entities import FeeRule, VEHICLE_MONTHLY, VEHICLE_TEMP, VEHICLE_VISITOR
 
+SECONDS_PER_MINUTE = 60
 MINUTES_PER_HOUR = 60
 MINUTES_PER_PERIOD = 24 * MINUTES_PER_HOUR      # 每 24 小时为一个封顶周期
 EXIT_BEFORE_ENTER_MSG = "出场时间不能早于入场时间"
@@ -23,7 +24,7 @@ def parked_minutes(enter: datetime, exit: datetime) -> int:
     """停车时长（分钟），不足 1 分钟的秒数舍去。exit 早于 enter 时抛 ValueError。"""
     if exit < enter:
         raise ValueError(EXIT_BEFORE_ENTER_MSG)
-    return int((exit - enter).total_seconds()) // MINUTES_PER_HOUR
+    return int((exit - enter).total_seconds()) // SECONDS_PER_MINUTE
 
 
 class FeePolicy(ABC):
