@@ -1,13 +1,14 @@
-"""车位管理页面（负责人 C，REQ-006；REQ-007 在后续任务卡中接入）。
+"""车位管理页面（REQ-006 负责人 C；REQ-007 固定车位由 A 接入，任务卡 A-5）。
 
-查询和保存调用 SpaceRepo，删除走 SpaceService（含占用、预约检查）；不写 SQL、不写业务公式（见 docs/03-架构与接口.md）。
-页面接收已构造好的 SpaceRepo，由 main_window.py 构造 SpaceRepo 并传入。
+查询和保存调用 SpaceRepo，删除、分配、释放走 SpaceService；不写 SQL、不写业务规则（见 docs/03-架构与接口.md）。
+页面构造为 SpacePage(space_repo, vehicle_repo)，由 main_window.py 构造并传入；
+vehicle_repo 用来在"固定车辆"列显示车牌，以及分配时按车牌查车辆。
 """
 import sqlite3
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+    QComboBox, QFormLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMessageBox,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -26,10 +27,11 @@ ALL = "全部"
 class SpacePage(QWidget):
     TITLE = "车位管理"
 
-    def __init__(self, space_repo: SpaceRepo | None = None, parent=None):
+    def __init__(self, space_repo: SpaceRepo | None = None, vehicle_repo=None, parent=None):
         super().__init__(parent)
         self.repo = space_repo
-        self.service = SpaceService(space_repo) if space_repo is not None else None
+        self.vehicle_repo = vehicle_repo
+        self.service = SpaceService(space_repo, vehicle_repo) if space_repo is not None else None
         self._current_id: int | None = None
         self._build_ui()
         if self.repo is None:
@@ -81,12 +83,16 @@ class SpacePage(QWidget):
         self.update_button = QPushButton("保存修改")
         self.delete_button = QPushButton("删除")
         self.clear_button = QPushButton("清空表单")
+        self.assign_button = QPushButton("分配固定车位")
+        self.release_button = QPushButton("释放固定车位")
 
         button_row = QHBoxLayout()
         for button in (self.add_button, self.update_button,
                        self.delete_button, self.clear_button):
             button_row.addWidget(button)
         button_row.addStretch(1)
+        for button in (self.assign_button, self.release_button):
+            button_row.addWidget(button)
 
         self.status_label = QLabel("")
 
@@ -105,6 +111,8 @@ class SpacePage(QWidget):
         self.update_button.clicked.connect(self._on_update)
         self.delete_button.clicked.connect(self._on_delete)
         self.clear_button.clicked.connect(self._clear_form)
+        self.assign_button.clicked.connect(self._on_assign)
+        self.release_button.clicked.connect(self._on_release)
 
     def _show_missing_repo(self) -> None:
         """骨架阶段 main_window 还没有注入 repo：禁用操作，避免程序启动即崩溃。"""
@@ -130,8 +138,7 @@ class SpacePage(QWidget):
             self.table.setItem(row, 0, code_item)
             self.table.setItem(row, 1, QTableWidgetItem(space.zone))
             self.table.setItem(row, 2, QTableWidgetItem(STATUS_LABELS.get(space.status, space.status)))
-            fixed = "—" if space.fixed_vehicle_id is None else f"车辆 {space.fixed_vehicle_id}"
-            self.table.setItem(row, 3, QTableWidgetItem(fixed))
+            self.table.setItem(row, 3, QTableWidgetItem(self._fixed_plate(space.fixed_vehicle_id)))
 
         self.status_label.setText(f"共 {len(spaces)} 个车位")
         self._current_id = None
@@ -257,4 +264,48 @@ class SpacePage(QWidget):
             self.refresh()
             return
         self._reload_zone_filter()
+        self.refresh()
+
+    # ---------- REQ-007 固定车位 ----------
+
+    def _fixed_plate(self, vehicle_id: int | None) -> str:
+        """"固定车辆"列显示车牌号，不显示车辆 id（任务卡 C-2）。"""
+        if vehicle_id is None:
+            return "—"
+        vehicle = self.vehicle_repo.get(vehicle_id) if self.vehicle_repo is not None else None
+        return vehicle.plate if vehicle is not None else f"车辆 {vehicle_id}"
+
+    def _on_assign(self) -> None:
+        if self._current_id is None:
+            QMessageBox.warning(self, "提示", "请先在列表中选择一个车位")
+            return
+        if self.vehicle_repo is None:
+            QMessageBox.warning(self, "提示", "车辆数据未接入，无法分配固定车位")
+            return
+        plate, ok = QInputDialog.getText(self, "分配固定车位", "月租车车牌：")
+        if not ok or not plate.strip():
+            return
+        try:
+            self.service.assign_fixed(self._current_id, plate)
+        except ValueError as exc:
+            QMessageBox.warning(self, "提示", str(exc))
+            return
+        self.refresh()
+
+    def _on_release(self) -> None:
+        if self._current_id is None:
+            QMessageBox.warning(self, "提示", "请先在列表中选择一个车位")
+            return
+        code = self.code_edit.text().strip() or str(self._current_id)
+        answer = QMessageBox.question(
+            self, "确认释放", f"确定释放车位 {code} 的固定车辆吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.service.release_fixed(self._current_id)
+        except ValueError as exc:
+            QMessageBox.warning(self, "提示", str(exc))
+            return
         self.refresh()

@@ -91,7 +91,7 @@ class MainWindow(QMainWindow):
             (FEATURE_RECORD, lambda: RecordPage(RecordRepo(self.conn))),
             (FEATURE_RESIDENT, lambda: ResidentPage(ResidentRepo(self.conn))),
             (FEATURE_VEHICLE, lambda: VehiclePage(VehicleRepo(self.conn), ResidentRepo(self.conn))),
-            (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn))),
+            (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn), VehicleRepo(self.conn))),
             (FEATURE_RESERVATION, lambda: ReservationPage()),
             (FEATURE_FEE_RULE, lambda: FeeRulePage(FeeRuleRepo(self.conn))),
             (FEATURE_ALERT, lambda: AlertPage()),
