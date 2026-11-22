@@ -2,6 +2,7 @@
 
 页面统一在 _build_pages 中注册，页面负责人不改本文件。
 按角色隐藏页面（REQ-020）：每个页面登记一个功能编号，can_access 不通过的页面不创建、不出现在侧边栏。
+预警页面（REQ-024、025）属拓展功能，本期不做，暂不注册；功能编号 FEATURE_ALERT 保留在 auth.py，以后实现时在此加回一行即可。
 """
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QListWidget, QMainWindow, QPushButton, QStackedWidget, QVBoxLayout,
@@ -17,7 +18,7 @@ from app.repository.space_repo import SpaceRepo
 from app.repository.user_repo import UserRepo
 from app.repository.vehicle_repo import VehicleRepo
 from app.services.auth import (
-    FEATURE_ALERT, FEATURE_BACKUP, FEATURE_FEE_RULE, FEATURE_GATE, FEATURE_RECORD,
+    FEATURE_BACKUP, FEATURE_FEE_RULE, FEATURE_GATE, FEATURE_RECORD,
     FEATURE_RESERVATION, FEATURE_RESIDENT, FEATURE_SPACE, FEATURE_STATS, FEATURE_USER,
     FEATURE_VEHICLE, can_access, change_password,
 )
@@ -25,7 +26,6 @@ from app.services.backup import DEFAULT_BACKUP_DIR
 from app.services.gate import GateService
 from app.services.user import UserService
 from app.ui.change_password_dialog import ChangePasswordDialog
-from app.ui.pages.alert_page import AlertPage
 from app.ui.pages.backup_page import BackupPage
 from app.ui.pages.fee_rule_page import FeeRulePage
 from app.ui.pages.gate_page import GatePage
@@ -95,7 +95,6 @@ class MainWindow(QMainWindow):
             (FEATURE_SPACE, lambda: SpacePage(SpaceRepo(self.conn), VehicleRepo(self.conn))),
             (FEATURE_RESERVATION, lambda: ReservationPage(ReservationRepo(self.conn), SpaceRepo(self.conn))),
             (FEATURE_FEE_RULE, lambda: FeeRulePage(FeeRuleRepo(self.conn))),
-            (FEATURE_ALERT, lambda: AlertPage()),
             (FEATURE_STATS, lambda: StatsPage(RecordRepo(self.conn), SpaceRepo(self.conn))),
             (FEATURE_USER, lambda: UserPage(user_repo, UserService(user_repo), self.user)),
             (FEATURE_BACKUP, lambda: BackupPage(self.conn, DEFAULT_BACKUP_DIR)),
