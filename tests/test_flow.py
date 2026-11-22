@@ -73,6 +73,34 @@ def test_flow_rule_change_applies_to_next_exit(app):
     assert repos["record"].get(first.id).fee == 9               # 已出场记录不变
 
 
+def test_flow_monthly_enter_before_expire_exit_after_charged_as_temp(app):
+    """到期日 11-30：11-30 20:00 入场、12-01 02:00 出场，出场日期晚于到期日，
+    整段 6 小时按临时车计费（docs/02「计费规则」）：6 × 3 = 18 元，未到封顶 30。"""
+    gate, _ = app
+    gate.enter("豫A12345", datetime(2026, 11, 30, 20), "guard")
+    assert gate.exit("豫A12345", datetime(2026, 12, 1, 2), "guard").fee == 18
+
+
+def test_flow_monthly_renewed_before_exit_is_free(app):
+    """到期日取车辆当前资料（docs/03 gate.py）：出场前续费到 12-31，12-01 出场仍免费。"""
+    gate, repos = app
+    gate.enter("豫A12345", datetime(2026, 11, 29, 8), "guard")
+    vehicle = repos["vehicle"].get_by_plate("豫A12345")
+    vehicle.monthly_expire = date(2026, 12, 31)
+    VehicleService(repos["vehicle"]).update(vehicle)
+    assert gate.exit("豫A12345", datetime(2026, 12, 1, 13), "guard").fee == 0
+
+
+def test_flow_monthly_deleted_while_parked_charged_as_temp(app):
+    """车辆资料已删除时按临时车计费（docs/03 gate.py）：停 5 小时，5 × 3 = 15 元（同示例 8）。"""
+    gate, repos = app
+    gate.enter("豫A12345", datetime(2026, 11, 20, 8), "guard")
+    VehicleService(repos["vehicle"]).delete(repos["vehicle"].get_by_plate("豫A12345").id)
+    exited = gate.exit("豫A12345", datetime(2026, 11, 20, 13), "guard")
+    assert exited.vehicle_type == VEHICLE_MONTHLY              # 记录里的类型快照不变（ADR-004）
+    assert exited.fee == 15
+
+
 def test_flow_fixed_space_counts_in_utilization(app):
     _, repos = app
     space_id = repos["space"].add(ParkingSpace(None, "A-001", "A区", SPACE_FREE, None))

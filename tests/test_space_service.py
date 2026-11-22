@@ -160,6 +160,18 @@ def test_req007_assigned_space_cannot_be_deleted(fixed):
         service.delete(a1)
 
 
+def test_req007_bound_space_manually_set_free_cannot_be_deleted(fixed):
+    """车位页可以手动把状态改成"空闲"（ADR-010），绑定不能因此被悄悄删掉。"""
+    repo, service, ids, a1, _ = fixed
+    service.assign_fixed(a1, "豫A12345")
+    space = repo.get(a1)
+    space.status = SPACE_FREE                    # 模拟车位页"保存修改"：保留绑定，只改状态
+    repo.update(space)
+    with pytest.raises(ValueError, match="^该车位已绑定固定车辆，请先释放$"):
+        service.delete(a1)
+    assert repo.get(a1).fixed_vehicle_id == ids["豫A12345"]
+
+
 def test_req007_get_by_fixed_vehicle(fixed):
     repo, service, ids, a1, _ = fixed
     assert repo.get_by_fixed_vehicle(ids["豫A12345"]) is None
