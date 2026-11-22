@@ -74,14 +74,25 @@ class ReservationPage(QWidget):
         self.status_label = QLabel("")
         layout.addWidget(self.status_label)
 
+    def showEvent(self, event) -> None:
+        """主窗口登录时就构造全部页面；每次切到本页时重新读取，车位页新增或分配的车位才能及时反映。"""
+        super().showEvent(event)
+        if self.reservation_repo is not None and self.space_repo is not None:
+            self.reload()
+
     def reload(self) -> None:
         spaces = self.space_repo.list_all()
         codes = {s.id: s.code for s in spaces}
 
+        previous = self.space_combo.currentData()      # 刷新后尽量保留原来选中的车位
         self.space_combo.clear()
         for space in spaces:
-            if space.status != SPACE_OCCUPIED:
+            # 只列出可预约的车位；最终能否预约仍由 add_reservation 判断
+            if space.status != SPACE_OCCUPIED and space.fixed_vehicle_id is None:
                 self.space_combo.addItem(f"{space.code}（{space.zone}）", space.id)
+        index = self.space_combo.findData(previous)
+        if index >= 0:
+            self.space_combo.setCurrentIndex(index)
 
         reservations = self.reservation_repo.list_all()
         self.table.setRowCount(len(reservations))
