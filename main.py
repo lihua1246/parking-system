@@ -9,6 +9,7 @@ from app.repository.user_repo import UserRepo
 from app.services.auth import authenticate, ensure_default_admin
 from app.ui.login_window import LoginWindow
 from app.ui.main_window import MainWindow
+from app.ui.theme import apply_theme
 
 
 def main() -> int:
@@ -18,6 +19,7 @@ def main() -> int:
     ensure_default_admin(user_repo)   # 首次启动写入 admin / admin123（只存哈希）
 
     app = QApplication(sys.argv)
+    apply_theme(app)   # 全局配色和样式表，所有窗口、页面自动生效
     login = LoginWindow(lambda username, password: authenticate(user_repo, username, password))
     windows = {}   # 保存主窗口的引用，防止被垃圾回收后窗口一闪而过
 
