@@ -72,6 +72,39 @@ def test_seal_pixmap_has_requested_size(qapp):
     assert round(pixmap.width() / pixmap.devicePixelRatio()) == 48
 
 
+# ---------------------------------------------------------------- 系统深色模式
+
+
+@pytest.fixture
+def dark_system(qapp):
+    """模拟系统是深色模式，测试后恢复原来的风格、样式表和配色，不影响其他测试。"""
+    from PySide6.QtCore import Qt
+    style, qss = qapp.style().objectName(), qapp.styleSheet()
+    qapp.styleHints().setColorScheme(Qt.ColorScheme.Dark)
+    yield qapp
+    qapp.setStyleSheet(qss)
+    qapp.setStyle(style)
+    qapp.styleHints().unsetColorScheme()
+
+
+def test_theme_stays_light_when_system_is_dark(dark_system):
+    """样式表没有覆盖到的部分（如表头空白处）按系统配色画，深色系统下会变成黑条。"""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QTableWidget
+    from app.ui.theme import apply_theme
+
+    apply_theme(dark_system)
+    assert dark_system.styleHints().colorScheme() != Qt.ColorScheme.Dark
+
+    table = QTableWidget(1, 2)
+    table.resize(400, 300)
+    table.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    table.show()
+    image = table.verticalHeader().viewport().grab().toImage()
+    blank = image.pixelColor(image.width() // 2, image.height() - 8)   # 唯一一行下面的空白处
+    assert blank.lightness() > 200
+
+
 # ---------------------------------------------------------------- 窗口
 
 

@@ -289,9 +289,12 @@ def seal_pixmap(size: int, color: str | None = None):
 
 
 def apply_theme(app) -> None:
-    """给整个程序套用主题：Fusion 基础风格（各平台外观一致）+ 本文件的样式表 + 窗口图标。"""
+    """给整个程序套用主题：固定浅色 + Fusion 基础风格（各平台外观一致）+ 本文件的样式表 + 窗口图标。"""
+    from PySide6.QtCore import Qt
     from PySide6.QtGui import QIcon
 
+    # 样式表没覆盖到的部分（表头空白处、复选框等）按系统配色画，系统是深色模式时会变成黑块，所以固定浅色
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
     app.setStyle("Fusion")
     app.setStyleSheet(build_stylesheet())
     if SEAL_PATH.exists():
