@@ -1,4 +1,4 @@
-"""车流量、收入、利用率、高峰时段（负责人 E，REQ-016 至 018、REQ-026）。
+"""车流量、收入、利用率（负责人 E，REQ-016 至 018）。
 
 全部是纯函数：只接收数据列表，返回计算结果，不访问数据库。收入按出场日期归属。
 """
@@ -84,8 +84,3 @@ def utilization(spaces: list[ParkingSpace]) -> float:
         return 0.0
     occupied = sum(1 for space in spaces if space.status == SPACE_OCCUPIED)
     return occupied / len(spaces)
-
-
-def peak_hours(records: list[ParkingRecord], top_n: int = 3) -> list[tuple[int, int]]:
-    """返回 [(小时, 入场数)]。"""
-    raise NotImplementedError("REQ-026 待 E 实现")

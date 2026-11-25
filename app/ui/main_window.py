@@ -2,7 +2,6 @@
 
 页面统一在 _build_pages 中注册，页面负责人不改本文件。
 按角色隐藏页面（REQ-020）：每个页面登记一个功能编号，can_access 不通过的页面不创建、不出现在侧边栏。
-预警页面（REQ-024、025）属拓展功能，本期不做，暂不注册；功能编号 FEATURE_ALERT 保留在 auth.py，以后实现时在此加回一行即可。
 """
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter
