@@ -9,13 +9,13 @@ import pytest
 
 from app.models.entities import ROLE_ADMIN, ROLE_GUARD
 from app.services.auth import (
-    ALL_FEATURES, FEATURE_ALERT, FEATURE_BACKUP, FEATURE_FEE_RULE, FEATURE_GATE,
+    ALL_FEATURES, FEATURE_BACKUP, FEATURE_FEE_RULE, FEATURE_GATE,
     FEATURE_RECORD, FEATURE_RESERVATION, FEATURE_RESIDENT, FEATURE_SPACE, FEATURE_STATS,
     FEATURE_USER, FEATURE_VEHICLE, can_access,
 )
 
 GUARD_DENIED = [FEATURE_RESIDENT, FEATURE_VEHICLE, FEATURE_SPACE, FEATURE_FEE_RULE, FEATURE_USER]
-GUARD_ALLOWED = [FEATURE_GATE, FEATURE_RECORD, FEATURE_RESERVATION, FEATURE_ALERT, FEATURE_STATS]
+GUARD_ALLOWED = [FEATURE_GATE, FEATURE_RECORD, FEATURE_RESERVATION, FEATURE_STATS]
 
 
 @pytest.mark.parametrize("feature", GUARD_DENIED)
@@ -32,8 +32,8 @@ def test_req020_guard_can_access_daily_pages(feature):
     assert can_access(ROLE_GUARD, feature) is True
 
 
-def test_req020_admin_can_access_all_11_features():
-    assert len(ALL_FEATURES) == 11
+def test_req020_admin_can_access_all_10_features():
+    assert len(ALL_FEATURES) == 10
     for feature in ALL_FEATURES:
         assert can_access(ROLE_ADMIN, feature) is True
 
